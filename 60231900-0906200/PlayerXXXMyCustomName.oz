@@ -103,41 +103,11 @@ in
 	end
 
 	fun {Move State ?ID ?Position}
-		CurrentPosition 
-	in 
-		ID = State.id
-		CurrentPosition = State.position
-		case CurrentPosition 
-			of pt(x:X y:Y) then 
-				{System.show X}
-				if X < 6 then 
-					Position = pt(x:CurrentPosition.x + 1 y:CurrentPosition.y)
-					{System.show 'Première condition'}
-				else if X > 6 then 
-					Position = pt(x:CurrentPosition.x - 1 y:CurrentPosition.y)
-					{System.show 'Deuxième condition'}
-				else 
-					Position = pt(x:CurrentPosition.x y:CurrentPosition.y)
-					{System.show 'Troisième condition'}
-				end 
-			end 
-		end 
-		{System.show 'Current Position'}
-		{System.show State.position.x}
-		{System.show 'NewPosition'}
-		{System.show Position.x}
-		State
+		State	
 	end
 
 	fun {SayMoved State ID Position}
-		NewState in 
-		if ID == State.id then 
-			NewState = {Adjoin State state(position:Position)}
-		else
-			NewState = State
-		end
-		NewState
-
+		State
 	end
 
 	fun {SayMineExplode State Mine}
@@ -203,7 +173,10 @@ in
 	fun {SayFlagDropped State ID Flag}
 		State
 	end
+
 	fun {Respawn ID State}
-		{Adjoin State state(hp:Input.startHealth)}
+		NewState in 
+			NewSate = {Adjoin State state(hp:Input.startHealth position:State.startPosition)}
+		NewSate
 	end 
 end

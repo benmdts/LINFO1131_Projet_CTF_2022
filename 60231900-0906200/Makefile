@@ -28,6 +28,15 @@ all:
 	$(OZC) -c Main.oz
 	$(OZENGINE) Main.ozf
 
+main : 
+	$(OZC) -c Main.oz
+
+clean-main : 
+	rm Main.ozf
+player : 
+	rm PlayerBasic.ozf
+	$(OZC) -c PlayerBasic.ozs
+
 run:
 	$(OZENGINE) Main.ozf
 
