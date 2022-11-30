@@ -112,23 +112,18 @@ in
 				{System.show X}
 				if X < 6 then 
 					Position = pt(x:CurrentPosition.x + 1 y:CurrentPosition.y)
-					{System.show 'Première condition'}
 				else if X > 6 then 
 					Position = pt(x:CurrentPosition.x - 1 y:CurrentPosition.y)
-					{System.show 'Deuxième condition'}
 				else 
 					Position = pt(x:CurrentPosition.x y:CurrentPosition.y)
-					{System.show 'Troisième condition'}
 				end 
 			end 
 		end 
-		{System.show 'Current Position'}
-		{System.show State.position.x}
-		{System.show 'NewPosition'}
-		{System.show Position.x}
 		State
 	end
 
+	% À modifier pas complet mais je sais pas encore quoi faire quand ce n'est pas le même id qui a bougé
+	% idée : Enregistrer dans une liste, comme pour main avec playerStatus, ce qui permettra de bouger en fonction 
 	fun {SayMoved State ID Position}
 		NewState in 
 		if ID == State.id then 
@@ -205,5 +200,6 @@ in
 	end
 	fun {Respawn ID State}
 		{Adjoin State state(hp:Input.startHealth)}
+		State
 	end 
 end

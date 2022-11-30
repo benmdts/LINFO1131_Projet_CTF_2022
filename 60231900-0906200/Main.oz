@@ -46,18 +46,12 @@ in
 	SimulatedThinking = proc{$} {Delay ({OS.rand} mod (Input.thinkMax - Input.thinkMin) + Input.thinkMin)} end
 
 	proc {Main Port ID State}
-		NewPosition
 		Result 
 		NewState
-		PlayerState
 	in
 		%Regarde s'il est en vie
-		{System.show '------------------------------------'}
-		PlayerState = {GetPlayerState State.playersStatus ID}
-		{System.show 'PlayerState'}
-		case PlayerState of nil then skip
+		case {GetPlayerState State.playersStatus ID} of nil then skip
 		[]playerstate(currentposition:PlayerPos hp:PlayerHP id:PlayerID port:PlayerPort) then 
-			{System.show 'Pattern Matching'}
 			if PlayerHP ==0 then 
 				{System.show 'Le joueur est mort'}
 				{Wait Input.respawnDelay}
@@ -83,16 +77,19 @@ in
 	in 
 		{Send Port move(ID NewPosition)}
 		if {CheckValidMove NewPosition {GetPlayerState State.playersStatus ID}.currentposition} ==true then 
+			% Bouge le player
 			{Send WindowPort moveSoldier(ID NewPosition)}
+			% Dis à tout le monde que le player a bougé 
 			{SayToAllPlayers PlayersPorts sayMoved(ID NewPosition)}
+			% On merge 2 records pour ajouter la nouvelle position {ChangePlayerStatus} retourne une nouvelle liste avec la nouvelle position
 			{Adjoin State state(playersStatus: {ChangePlayerStatus State.playersStatus ID playerstate(currentposition:NewPosition)})}
 			else 
 			State
 		end
 	end
 
+	% Change le record playerState() du player avec l'id PLAYERID
 	fun {ChangePlayerStatus PlayersList PlayerID NewValue}
-		{System.show PlayersList}
 		case PlayersList of nil then nil
 		[] playerstate(currentposition:Pos hp:HP id:ThisPlayerID port:Port)|T then 
 			if ThisPlayerID == PlayerID.id then 
@@ -103,6 +100,7 @@ in
 		end
 	end
 
+	% Retourne le record playerstate() du player avec l'id PLAYERID
 	fun {GetPlayerState PlayersList PlayerID}
 		case PlayersList of nil then nil
 		[] playerstate(currentposition:Pos hp:HP id:ThisPlayerID port:Port)|T then 
@@ -114,6 +112,7 @@ in
 		end
 	end
 
+	% Previens tous les joueurs avec le message MESSAGE
 	proc {SayToAllPlayers PlayersPorts Message}
 		case PlayersPorts of nil then skip
 		[] player(_ Port)|T then 
@@ -123,7 +122,9 @@ in
 	end 
 
 
-	% -------Vérifie la validité d'une nouvelle position-------%		
+	% -------Vérifie la validité d'une nouvelle position-------%	
+	
+	%3 conditions vérifiées : Pas un mouvement statique, pas un mouvement qui n'est pas dans le range et pas un mouvement en dehors de la map
 	fun {CheckValidMove NewPosition LastPosition}
 		if({CheckNotSameMove NewPosition LastPosition}==true andthen {MoveIsNextLastPosition NewPosition LastPosition}==true andthen {MoveIsInTheMap NewPosition}==true) then 
 			{System.show 'Nouvelle position acceptée'}
@@ -170,9 +171,9 @@ in
 	end 
 
 	%----------------------------------------------%
-
-	fun {CreatePlayerStatus PlayerPorts} 
 	
+	%Crée la liste de record qui nous permet de savoir la position des joueurs sur la map et leur vie
+	fun {CreatePlayerStatus PlayerPorts} 
 		case PlayerPorts of nil then nil 
 		[]player(PlayerID PlayerPort)|T then 
 			playerstate(
