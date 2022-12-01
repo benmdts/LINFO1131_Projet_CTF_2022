@@ -72,63 +72,10 @@ in
 		{Delay 500}
 		{Main Port ID StatePort}
 	end
-/* 
-	fun {AjoutMineFictive Port ID State }
-		TestState in 
-		if State.mines==nil andthen ID.id == 1 then 
-		{Send WindowPort putMine(mine(pos:pt(x:6 y:10)))}
-		{Adjoin State state(mines:{Append State.mines [mine(pos:pt(x:6 y:10))]})}
-		else 
-			State
-		end 
-	end 
-*/
-	fun {CheckMines Port ID State Position MinesList}
-		case MinesList of nil then State
-		[] mine(pos:MinePos)|T then 
-			if MinePos == Position then 
-				{Send WindowPort lifeUpdate(State.hp-2)}%Enlève 2 de vie pour le mec car il a marché dessus
-				{SayToAllPlayers PlayersPorts sayDamageTaken(ID 2 State.hp-2)}
-				if(State.hp-2==0) then 
-					{SayToAllPlayers PlayersPorts sayDeath(ID)}
-					{Send WindowPort removeSoldier(ID)}
-					% SKIP LE RESTE DE SON TOUR. Je vois pas comment faire pour l'instant
-				end 
-				{SayToAllPlayers PlayersPorts sayMineExplode(mine(pos:MinePos))}
-				{Send WindowPort mine(pos:MinePos)}
-				{Adjoin {CheckOtherPlayersNearMines Port ID State Position mine(pos:MinePos)} state(playersStatus: {ChangePlayerStatus State.playersStatus ID playerstate(hp:State.hp-1)})}
-				else 
-					{CheckMines Port ID State Position T}
-			end 
-		end 
-		
-	end 
-	fun {CheckOtherPlayersNearMines Port ID State PlayersList Position}
-		case PlayersList 
-		of nil then 
-			State
-		[] playerstate(currentposition:Pos hp:HP id:ThisPlayerID port:Port)|T then 
-			if {MoveIsNextLastPosition Pos Position} then 
-				{Send WindowPort lifeUpdate(HP-1)}
-				{SayToAllPlayers PlayersPorts sayDamageTaken(ID 1 HP-1)}
-				if(HP-1==0) then 
-					{SayToAllPlayers PlayersPorts sayDeath(ThisPlayerID)}
-					{Send WindowPort removeSoldier(ThisPlayerID)}
-					% SKIP LE RESTE DE SON TOUR. Je vois pas comment faire pour l'instant
-				end
-				{CheckOtherPlayersNearMines Port ID {Adjoin State state(playersStatus: {ChangePlayerStatus State.playersStatus ThisPlayerID playerstate(hp:HP-1)})} T Position}
-				else
-					{CheckOtherPlayersNearMines Port ID State T Position}
-			end 
-		
-		end
 
-	end 
 
-	fun {MovePlayer Port ID State}
-		NewPosition
-	in 
-		if {CheckValidMove NewPosition {GetPlayerState State.playersStatus ID}.currentposition} ==true then 
+	fun {MovePlayer Port ID State NewPosition}
+		if {CheckValidMove NewPosition State ID} then 
 			% Bouge le player
 			{Send WindowPort moveSoldier(ID NewPosition)}
 			% Dis à tout le monde que le player a bougé 
@@ -139,46 +86,14 @@ in
 			State
 		end
 	end
-
-	% Change le record playerState() du player avec l'id PLAYERID
-	fun {ChangePlayerStatus PlayersList PlayerID NewValue}
-		case PlayersList of nil then nil
-		[] playerstate(currentposition:Pos hp:HP id:ThisPlayerID port:Port)|T then 
-			if ThisPlayerID == PlayerID.id then 
-				{Adjoin playerstate(currentposition:Pos hp:HP id:ThisPlayerID port:Port) NewValue}|T
-			else 
-				playerstate(currentposition:Pos hp:HP id:ThisPlayerID port:Port)|{ChangePlayerStatus T PlayerID NewValue}
-			end
-		end
-	end
-
-	% Retourne le record playerstate() du player avec l'id PLAYERID
-	fun {GetPlayerState PlayersList PlayerID}
-		case PlayersList of nil then nil
-		[] playerstate(currentposition:Pos hp:HP id:ThisPlayerID port:Port)|T then 
-			if(ThisPlayerID == PlayerID.id) then 
-				playerstate(currentposition:Pos hp:HP id:ThisPlayerID port:Port)
-			else 
-				{GetPlayerState T PlayerID}
-			end
-		end
-	end
-
-	% Previens tous les joueurs avec le message MESSAGE
-	proc {SayToAllPlayers PlayersPorts Message}
-		case PlayersPorts of nil then skip
-		[] player(_ Port)|T then 
-			{Send Port Message}
-			{SayToAllPlayers T Message}
-		end 
-	end 
-
-
-	% -------Vérifie la validité d'une nouvelle position-------%	
+% -------Vérifie la validité d'une nouvelle position-------%	
 	
 	%3 conditions vérifiées : Pas un mouvement statique, pas un mouvement qui n'est pas dans le range et pas un mouvement en dehors de la map
-	fun {CheckValidMove NewPosition LastPosition}
-		if({CheckNotSameMove NewPosition LastPosition}==true andthen {MoveIsNextLastPosition NewPosition LastPosition}==true andthen {MoveIsInTheMap NewPosition}==true) then 
+	fun {CheckValidMove NewPosition State ID}
+		LastPosition
+	in
+		LastPosition={GetPlayerState State.playersStatus ID}.currentposition
+		if({CheckNotSameMove NewPosition LastPosition}==true andthen {MoveIsNextLastPosition NewPosition LastPosition}==true andthen {MoveIsInTheMap NewPosition}==true) andthen {CheckNotMerging NewPosition State.playersStatus ID} then 
 			{System.show 'Nouvelle position acceptée'}
 			true
 		else 
@@ -223,12 +138,69 @@ in
 			false 
 		end 
 	end 
+	
+	fun {CheckNotMerging NewPosition State ID}
+		{System.show '4ème condition'}
+		case State of nil then true
+		[] H|T then 
+			if H.id\=ID andthen NewPosition==H.currentposition then
+				false
+			else
+				{CheckNotMerging NewPosition T ID}
+			end
+		end
+	end
+	/* 
+	fun {CheckMines Port ID State Position MinesList}
+		case MinesList of nil then State
+		[] mine(pos:MinePos)|T then 
+			if MinePos == Position then 
+				{Send WindowPort lifeUpdate(State.hp-2)}%Enlève 2 de vie pour le mec car il a marché dessus
+				{SayToAllPlayers PlayersPorts sayDamageTaken(ID 2 State.hp-2)}
+				if(State.hp-2==0) then 
+					{SayToAllPlayers PlayersPorts sayDeath(ID)}
+					{Send WindowPort removeSoldier(ID)}
+					% SKIP LE RESTE DE SON TOUR. Je vois pas comment faire pour l'instant
+				end 
+				{SayToAllPlayers PlayersPorts sayMineExplode(mine(pos:MinePos))}
+				{Send WindowPort mine(pos:MinePos)}
+				{Adjoin {CheckOtherPlayersNearMines Port ID State Position mine(pos:MinePos)} state(playersStatus: {ChangePlayerStatus State.playersStatus ID playerstate(hp:State.hp-1)})}
+				else 
+					{CheckMines Port ID State Position T}
+			end 
+		end 
+		
+	end 
+	fun {CheckOtherPlayersNearMines Port ID State PlayersList Position}
+		case PlayersList 
+		of nil then 
+			State
+		[] playerstate(currentposition:Pos hp:HP id:ThisPlayerID port:Port)|T then 
+			if {MoveIsNextLastPosition Pos Position} then 
+				{Send WindowPort lifeUpdate(HP-1)}
+				{SayToAllPlayers PlayersPorts sayDamageTaken(ID 1 HP-1)}
+				if(HP-1==0) then 
+					{SayToAllPlayers PlayersPorts sayDeath(ThisPlayerID)}
+					{Send WindowPort removeSoldier(ThisPlayerID)}
+					% SKIP LE RESTE DE SON TOUR. Je vois pas comment faire pour l'instant
+				end
+				{CheckOtherPlayersNearMines Port ID {Adjoin State state(playersStatus: {ChangePlayerStatus State.playersStatus ThisPlayerID playerstate(hp:HP-1)})} T Position}
+				else
+					{CheckOtherPlayersNearMines Port ID State T Position}
+			end 
+		
+		end
 
-	%Ajouter pas aller dans la même case qu'un autre joueur
+	end */
 
-	% Pas aller dans les murs
-
-	%----------------------------------------------%
+	% Previens tous les joueurs avec le message MESSAGE
+	proc {SayToAllPlayers PlayersPorts Message}
+		case PlayersPorts of nil then skip
+		[] player(_ Port)|T then 
+			{Send Port Message}
+			{SayToAllPlayers T Message}
+		end 
+	end 
 	
 	%Crée la liste de record qui nous permet de savoir la position des joueurs sur la map et leur vie
 	fun {CreatePlayerStatus PlayerPorts} 
@@ -242,6 +214,30 @@ in
 				)|{CreatePlayerStatus T}
 		end 
 	end 
+
+	% Change le record playerState() du player avec l'id PLAYERID
+	fun {ChangePlayerStatus PlayersList PlayerID NewValue}
+		case PlayersList of nil then nil
+		[] playerstate(currentposition:Pos hp:HP id:ThisPlayerID port:Port)|T then 
+			if ThisPlayerID == PlayerID.id then 
+				{Adjoin playerstate(currentposition:Pos hp:HP id:ThisPlayerID port:Port) NewValue}|T
+			else 
+				playerstate(currentposition:Pos hp:HP id:ThisPlayerID port:Port)|{ChangePlayerStatus T PlayerID NewValue}
+			end
+		end
+	end
+
+	% Retourne le record playerstate() du player avec l'id PLAYERID
+	fun {GetPlayerState PlayersList PlayerID}
+		case PlayersList of nil then nil
+		[] playerstate(currentposition:Pos hp:HP id:ThisPlayerID port:Port)|T then 
+			if(ThisPlayerID == PlayerID.id) then 
+				playerstate(currentposition:Pos hp:HP id:ThisPlayerID port:Port)
+			else 
+				{GetPlayerState T PlayerID}
+			end
+		end
+	end
 
 	proc {InitThreadForAll Players PlayersStatus GameStatePort}
 		case Players
@@ -303,7 +299,7 @@ in
 			% Prévenir les autres
 			{Adjoin State state(playersStatus: {ChangePlayerStatus State.playersStatus ID playerstate(currentposition: {List.nth spawnPoints ID} hp: Input.startHealth)} )}
 		[] move(ID Position Port) then 
-			{MovePlayer Port ID State}
+			{MovePlayer Port ID State Position}
 		end 
     end
 
