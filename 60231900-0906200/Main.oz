@@ -149,7 +149,8 @@ in
 			end
 		end
 	end
-	/* 
+	
+	/*
 	fun {CheckMines Port ID State Position MinesList}
 		case MinesList of nil then State
 		[] mine(pos:MinePos)|T then 
@@ -168,7 +169,6 @@ in
 					{CheckMines Port ID State Position T}
 			end 
 		end 
-		
 	end 
 	fun {CheckOtherPlayersNearMines Port ID State PlayersList Position}
 		case PlayersList 
@@ -201,6 +201,7 @@ in
 		end 
 	end 
 	
+
 	%Crée la liste de record qui nous permet de savoir la position des joueurs sur la map et leur vie
 	fun {CreatePlayerStatus PlayerPorts} 
 		case PlayerPorts of nil then nil 
