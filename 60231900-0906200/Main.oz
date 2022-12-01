@@ -24,6 +24,8 @@ define
 	CreatePlayerStatus
 	GetPlayerState
 	ChangePlayerStatus
+	CheckOtherPlayersNearMines
+	AjoutMineFictive
 	
 
 	proc {DrawFlags Flags Port}
@@ -47,8 +49,13 @@ in
 
 	proc {Main Port ID State}
 		Result 
-		NewState
+		NewStateMove
+		NewStateMine
+		TestState
 	in
+		%---------------------------------------------------------------
+		%Tout n'est pas à jeter mais c'est pas bon comme c'est en threads, ils ont tous des States différents or qu'ils devraient avoir les mêmes. Faut trouver une solution. Mais les fonctions sont bonnes, juste le code ici en-dessous n'est pas bon :(
+		%---------------------------------------------------------------
 		%Regarde s'il est en vie
 		case {GetPlayerState State.playersStatus ID} of nil then skip
 		[]playerstate(currentposition:PlayerPos hp:PlayerHP id:PlayerID port:PlayerPort) then 
@@ -62,14 +69,65 @@ in
 				end 
 		end
 		{System.show 'Ask for move'}
+		%TestState = {AjoutMineFictive Port ID State}
 		% Demande s'il veut bouger
-		NewState = {MovePlayer Port ID State}
+		NewStateMove = {MovePlayer Port ID State}
+		% Check les mines 
+		NewStateMine = {CheckMines Port ID NewStateMove {GetPlayerState NewStateMove.playersStatus ID}.currentposition NewStateMove.mines}
 		{Delay 500}
-		{Main Port ID NewState}
+		{Main Port ID NewStateMine}
 	end
+/* 
+	fun {AjoutMineFictive Port ID State }
+		TestState in 
+		if State.mines==nil andthen ID.id == 1 then 
+		{Send WindowPort putMine(mine(pos:pt(x:6 y:10)))}
+		{Adjoin State state(mines:{Append State.mines [mine(pos:pt(x:6 y:10))]})}
+		else 
+			State
+		end 
+	end 
+*/
+	fun {CheckMines Port ID State Position MinesList}
+		case MinesList of nil then State
+		[] mine(pos:MinePos)|T then 
+			if MinePos == Position then 
+				{Send WindowPort lifeUpdate(State.hp-2)}%Enlève 2 de vie pour le mec car il a marché dessus
+				{SayToAllPlayers PlayersPorts sayDamageTaken(ID 2 State.hp-2)}
+				if(State.hp-2==0) then 
+					{SayToAllPlayers PlayersPorts sayDeath(ID)}
+					{Send WindowPort removeSoldier(ID)}
+					% SKIP LE RESTE DE SON TOUR. Je vois pas comment faire pour l'instant
+				end 
+				{SayToAllPlayers PlayersPorts sayMineExplode(mine(pos:MinePos))}
+				{Send WindowPort mine(pos:MinePos)}
+				{Adjoin {CheckOtherPlayersNearMines Port ID State Position mine(pos:MinePos)} state(playersStatus: {ChangePlayerStatus State.playersStatus ID playerstate(hp:State.hp-1)})}
+				else 
+					{CheckMines Port ID State Position T}
+			end 
+		end 
+		
+	end 
+	fun {CheckOtherPlayersNearMines Port ID State PlayersList Position}
+		case PlayersList 
+		of nil then 
+			State
+		[] playerstate(currentposition:Pos hp:HP id:ThisPlayerID port:Port)|T then 
+			if {MoveIsNextLastPosition Pos Position} then 
+				{Send WindowPort lifeUpdate(HP-1)}
+				{SayToAllPlayers PlayersPorts sayDamageTaken(ID 1 HP-1)}
+				if(HP-1==0) then 
+					{SayToAllPlayers PlayersPorts sayDeath(ThisPlayerID)}
+					{Send WindowPort removeSoldier(ThisPlayerID)}
+					% SKIP LE RESTE DE SON TOUR. Je vois pas comment faire pour l'instant
+				end
+				{CheckOtherPlayersNearMines Port ID {Adjoin State state(playersStatus: {ChangePlayerStatus State.playersStatus ThisPlayerID playerstate(hp:HP-1)})} T Position}
+				else
+					{CheckOtherPlayersNearMines Port ID State T Position}
+			end 
+		
+		end
 
-	fun {CheckMines Port ID State Position}
-		State
 	end 
 
 	fun {MovePlayer Port ID State}

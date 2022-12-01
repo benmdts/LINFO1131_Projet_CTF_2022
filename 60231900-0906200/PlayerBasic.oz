@@ -135,6 +135,7 @@ in
 
 	end
 
+	%Comme pour au dessus ici il faudrait changer la liste qu'on utiliserait pour stocker l'endroit des mines
 	fun {SayMineExplode State Mine}
 		State
 	end
