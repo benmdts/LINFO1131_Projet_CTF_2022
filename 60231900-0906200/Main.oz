@@ -31,6 +31,7 @@ define
 	MatchHead
 	PlayersStatus
 	GameStatePort
+	CheckNotMerging
 
 	
 
@@ -100,30 +101,24 @@ in
 	in
 		LastPosition={GetPlayerState State.playersStatus ID}.currentposition
 		if({CheckNotSameMove NewPosition LastPosition}==true andthen {MoveIsNextLastPosition NewPosition LastPosition}==true andthen {MoveIsInTheMap NewPosition}==true) andthen {CheckNotMerging NewPosition State.playersStatus ID} then 
-			{System.show 'Nouvelle position acceptée'}
 			true
 		else 
-			{System.show 'Nouvelle position pas acceptée'}
 			false
 		end 
 	end
 	fun {CheckNotSameMove NewPosition LastPosition}
-		{System.show '1ère condition'}
 		if(NewPosition.x==LastPosition.x andthen LastPosition.y==NewPosition.y) then 
 			{System.show 'Même move'}
 			false
 		else 
-			{System.show 'Pas la même position'}
 			true
 		end 
 	end
 
 	%Autorisation move en diagonale ?
 	fun {MoveIsNextLastPosition NewPosition LastPosition}
-		{System.show '2ème condition'}
 		if(NewPosition.x==LastPosition.x-1 orelse NewPosition.x==LastPosition.x+1 orelse NewPosition.x==LastPosition.x) then 
 			if(NewPosition.y==NewPosition.y-1 orelse NewPosition.y==NewPosition.y+1 orelse NewPosition.y==NewPosition.y) then
-				{System.show 'Bien une position qui est à côté'}
 				true
 				else 
 					{System.show 'Pas à côté de l ancienne position'}
@@ -135,9 +130,7 @@ in
 	end 
 	
 	fun {MoveIsInTheMap NewPosition}
-		{System.show '3ème condition'}
 		if(NewPosition.x=<Input.nRow andthen NewPosition.y =<Input.nColumn andthen NewPosition.x>=1 andthen NewPosition.y >=1) then
-			{System.show 'Position dans la Map'} 
 			true
 		else 
 			{System.show 'Pas dans la map'}
@@ -146,10 +139,10 @@ in
 	end 
 	
 	fun {CheckNotMerging NewPosition State ID}
-		{System.show '4ème condition'}
 		case State of nil then true
 		[] H|T then 
 			if H.id\=ID andthen NewPosition==H.currentposition then
+				{System.show 'Place déjà occupée'}
 				false
 			else
 				{CheckNotMerging NewPosition T ID}
@@ -277,7 +270,7 @@ in
 
     proc{TreatStream Stream State}
         case Stream
-            of H|T then {TreatStream T {MatchHead H State}}
+            of H|T then {System.show State} {TreatStream T {MatchHead H State}}
         end
     end
 
@@ -319,10 +312,8 @@ in
 
         % Create port for players
 		PlayersPorts = {DoListPlayer Input.players Input.colors 1} 
-			{System.show 'PlayersPorts crée'}
 		PlayersStatus = {CreatePlayerStatus PlayersPorts}
 		GameStatePort = {StartGame PlayersStatus}
-		{System.show 'PlayersStatus crée'}
 		
 		{InitThreadForAll PlayersPorts PlayersStatus GameStatePort}
 
