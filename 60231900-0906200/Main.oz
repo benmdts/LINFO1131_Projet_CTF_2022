@@ -117,8 +117,10 @@ in
 
 	%Autorisation move en diagonale ?
 	fun {MoveIsNextLastPosition NewPosition LastPosition}
+		{System.show NewPosition}
+		{System.show LastPosition}
 		if(NewPosition.x==LastPosition.x-1 orelse NewPosition.x==LastPosition.x+1 orelse NewPosition.x==LastPosition.x) then 
-			if(NewPosition.y==NewPosition.y-1 orelse NewPosition.y==NewPosition.y+1 orelse NewPosition.y==NewPosition.y) then
+			if(NewPosition.y==LastPosition.y-1 orelse NewPosition.y==LastPosition.y+1 orelse NewPosition.y==LastPosition.y) then
 				true
 				else 
 					{System.show 'Pas à côté de l ancienne position'}
