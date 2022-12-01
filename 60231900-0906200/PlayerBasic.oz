@@ -201,6 +201,5 @@ in
 	end
 	fun {Respawn ID State}
 		{Adjoin State state(hp:Input.startHealth)}
-		State
 	end 
 end

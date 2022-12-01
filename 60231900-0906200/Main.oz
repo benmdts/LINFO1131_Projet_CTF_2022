@@ -47,27 +47,25 @@ in
 
 	SimulatedThinking = proc{$} {Delay ({OS.rand} mod (Input.thinkMax - Input.thinkMin) + Input.thinkMin)} end
 
-	proc {Main Port ID State}
+	proc {Main Port ID StatePort}
 		Result 
 		NewStateMove
 		NewStateMine
 		TestState
+		isDead
 	in
 		%---------------------------------------------------------------
 		%Tout n'est pas à jeter mais c'est pas bon comme c'est en threads, ils ont tous des States différents or qu'ils devraient avoir les mêmes. Faut trouver une solution. Mais les fonctions sont bonnes, juste le code ici en-dessous n'est pas bon :(
 		%---------------------------------------------------------------
 		%Regarde s'il est en vie
-		case {GetPlayerState State.playersStatus ID} of nil then skip
-		[]playerstate(currentposition:PlayerPos hp:PlayerHP id:PlayerID port:PlayerPort) then 
-			if PlayerHP ==0 then 
-				{System.show 'Le joueur est mort'}
-				{Wait Input.respawnDelay}
-				{Send Port respawn(ID)}
-				{Send WindowPort moveSoldier(ID State.startPosition)}
-				%NewState = {Adjoin State state(playersStatus: {Adjoin state.playersStatus playerstate(ID : ID hp: Input.startHealth currentposition: {List.nth Input.spawnPoints ID})})} 
-				%Comment faire si on respawn pour changer l'état, car on le change potentiellement après, on crée plusieurs variables ?
-				end 
+
+		{Send StatePort isAlive(ID isDead)}
+		{Wait isDead}
+		if(isDead==true) then 
+			{Wait Input.respawnDelay}
+			{Send StatePort respawn(ID Port)}
 		end
+		{Send Port move(ID NewPosition)}
 		{System.show 'Ask for move'}
 		%TestState = {AjoutMineFictive Port ID State}
 		% Demande s'il veut bouger
@@ -133,7 +131,6 @@ in
 	fun {MovePlayer Port ID State}
 		NewPosition 
 	in 
-		{Send Port move(ID NewPosition)}
 		if {CheckValidMove NewPosition {GetPlayerState State.playersStatus ID}.currentposition} ==true then 
 			% Bouge le player
 			{Send WindowPort moveSoldier(ID NewPosition)}
@@ -203,6 +200,7 @@ in
 		end 
 	end
 
+	%Autorisation move en diagonale ?
 	fun {MoveIsNextLastPosition NewPosition LastPosition}
 		{System.show '2ème condition'}
 		if(NewPosition.x==LastPosition.x-1 orelse NewPosition.x==LastPosition.x+1 orelse NewPosition.x==LastPosition.x) then 
@@ -217,6 +215,7 @@ in
 			false
 		end 
 	end 
+	
 	fun {MoveIsInTheMap NewPosition}
 		{System.show '3ème condition'}
 		if(NewPosition.x=<Input.nRow andthen NewPosition.y =<Input.nColumn andthen NewPosition.x>=1 andthen NewPosition.y >=1) then
@@ -227,6 +226,10 @@ in
 			false 
 		end 
 	end 
+
+	%Ajouter pas aller dans la même case qu'un autre joueur
+
+	% Pas aller dans les murs
 
 	%----------------------------------------------%
 	
@@ -258,6 +261,56 @@ in
 			{InitThreadForAll Next PlayersStatus}
 		end
 	end
+
+	fun {StartGame PlayersStatus}
+		Stream
+		Port
+	in
+		{NewPort Stream Port}
+		thread
+			{TreatStream
+			 	Stream
+				state(mines:nil flags:Input.flags playersStatus: PlayersStatus)
+			}
+		end
+		Port
+	end
+
+    proc{TreatStream Stream State}
+        case Stream
+            of H|T then {TreatStream T {MatchHead H State}}
+        end
+    end
+
+	% Head = Stream avec les messages donnés par la fonction main 
+	% State = État de la partie
+	fun {MatchHead Head State}
+        case Head of nil then nil 
+		[] isAlive(ID ?Dead) then 
+			in 
+			case {GetPlayerState State.playersStatus ID} of nil then skip
+			[]playerstate(currentposition:PlayerPos hp:PlayerHP id:PlayerID port:PlayerPort) then 
+			if PlayerHP ==0 then 
+				{System.show 'Le joueur est mort'}
+				Dead = true
+				%Comment faire si on respawn pour changer l'état, car on le change potentiellement après, on crée plusieurs variables ?
+				else 
+					Dead = false
+				end
+			end
+			State
+		% On donne l'id et le port du joueur qui doit être respawn 
+		[] respawn(ID Port) then 
+			{Send Port respawn(ID)}
+			{Send WindowPort moveSoldier(ID State.startPosition)}
+			% Prévenir les autres
+			{Adjoin State state(playersStatus: {ChangePlayerStatus State.playersStatus ID playerstate(currentposition: {List.nth spawnPoints ID} hp: Input.startHealth)} )}
+		[] move(ID Position Port) then 
+			{MovePlayer Port ID State}
+			% À terminer
+		end 
+    end
+
 
     thread
 		% Create port for window
