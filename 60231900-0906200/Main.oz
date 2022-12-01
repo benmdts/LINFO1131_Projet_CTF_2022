@@ -53,6 +53,7 @@ in
 		NewStateMine
 		TestState
 		isDead
+		NewPosition
 	in
 		%---------------------------------------------------------------
 		%Tout n'est pas à jeter mais c'est pas bon comme c'est en threads, ils ont tous des States différents or qu'ils devraient avoir les mêmes. Faut trouver une solution. Mais les fonctions sont bonnes, juste le code ici en-dessous n'est pas bon :(
@@ -66,14 +67,10 @@ in
 			{Send StatePort respawn(ID Port)}
 		end
 		{Send Port move(ID NewPosition)}
-		{System.show 'Ask for move'}
-		%TestState = {AjoutMineFictive Port ID State}
-		% Demande s'il veut bouger
-		NewStateMove = {MovePlayer Port ID State}
-		% Check les mines 
-		NewStateMine = {CheckMines Port ID NewStateMove {GetPlayerState NewStateMove.playersStatus ID}.currentposition NewStateMove.mines}
+		{Wait NewPosition}{Wait ID}
+		{Send StatePort move(ID NewPosition Port)}
 		{Delay 500}
-		{Main Port ID NewStateMine}
+		{Main Port ID StatePort}
 	end
 /* 
 	fun {AjoutMineFictive Port ID State }
@@ -129,7 +126,7 @@ in
 	end 
 
 	fun {MovePlayer Port ID State}
-		NewPosition 
+		NewPosition
 	in 
 		if {CheckValidMove NewPosition {GetPlayerState State.playersStatus ID}.currentposition} ==true then 
 			% Bouge le player
@@ -246,7 +243,7 @@ in
 		end 
 	end 
 
-	proc {InitThreadForAll Players PlayersStatus}
+	proc {InitThreadForAll Players PlayersStatus GameStatePort}
 		case Players
 		of nil then
 			{Send WindowPort initSoldier(null pt(x:0 y:0))}
@@ -256,9 +253,9 @@ in
 			{Send WindowPort initSoldier(ID Position)}
 			{Send WindowPort lifeUpdate(ID Input.startHealth)}
 			thread
-			 	{Main Port ID state(mines:nil flags:Input.flags playersStatus: PlayersStatus)}
+			 	{Main Port ID GameStatePort}
 			end
-			{InitThreadForAll Next PlayersStatus}
+			{InitThreadForAll Next PlayersStatus GameStatePort}
 		end
 	end
 
@@ -307,7 +304,6 @@ in
 			{Adjoin State state(playersStatus: {ChangePlayerStatus State.playersStatus ID playerstate(currentposition: {List.nth spawnPoints ID} hp: Input.startHealth)} )}
 		[] move(ID Position Port) then 
 			{MovePlayer Port ID State}
-			% À terminer
 		end 
     end
 
@@ -324,9 +320,10 @@ in
 		PlayersPorts = {DoListPlayer Input.players Input.colors 1} 
 			{System.show 'PlayersPorts crée'}
 		PlayersStatus = {CreatePlayerStatus PlayersPorts}
-
+		GameStatePort = {StartGame PlayerStatus}
 		{System.show 'PlayersStatus crée'}
 		
-		{InitThreadForAll PlayersPorts PlayersStatus}
+		{InitThreadForAll PlayersPorts PlayersStatus GameStatePort}
+
 		end
 end
