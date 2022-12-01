@@ -26,6 +26,12 @@ define
 	ChangePlayerStatus
 	CheckOtherPlayersNearMines
 	AjoutMineFictive
+	StartGame
+	TreatStream
+	MatchHead
+	PlayersStatus
+	GameStatePort
+
 	
 
 	proc {DrawFlags Flags Port}
@@ -52,7 +58,7 @@ in
 		NewStateMove
 		NewStateMine
 		TestState
-		isDead
+		IsDead
 		NewPosition
 	in
 		%---------------------------------------------------------------
@@ -60,9 +66,9 @@ in
 		%---------------------------------------------------------------
 		%Regarde s'il est en vie
 
-		{Send StatePort isAlive(ID isDead)}
-		{Wait isDead}
-		if(isDead==true) then 
+		{Send StatePort isAlive(ID IsDead)}
+		{Wait IsDead}
+		if(IsDead==true) then 
 			{Wait Input.respawnDelay}
 			{Send StatePort respawn(ID Port)}
 		end
@@ -125,8 +131,7 @@ in
 
 	end 
 
-	fun {MovePlayer Port ID State}
-		NewPosition
+	fun {MovePlayer Port ID NewPosition State}
 	in 
 		if {CheckValidMove NewPosition {GetPlayerState State.playersStatus ID}.currentposition} ==true then 
 			% Bouge le player
@@ -283,8 +288,7 @@ in
 	% State = État de la partie
 	fun {MatchHead Head State}
         case Head of nil then nil 
-		[] isAlive(ID ?Dead) then 
-			in 
+		[] isAlive(ID ?Dead) then  
 			case {GetPlayerState State.playersStatus ID} of nil then skip
 			[]playerstate(currentposition:PlayerPos hp:PlayerHP id:PlayerID port:PlayerPort) then 
 			if PlayerHP ==0 then 
@@ -303,7 +307,7 @@ in
 			% Prévenir les autres
 			{Adjoin State state(playersStatus: {ChangePlayerStatus State.playersStatus ID playerstate(currentposition: {List.nth spawnPoints ID} hp: Input.startHealth)} )}
 		[] move(ID Position Port) then 
-			{MovePlayer Port ID State}
+			{MovePlayer Port ID Position State}
 		end 
     end
 
@@ -320,7 +324,7 @@ in
 		PlayersPorts = {DoListPlayer Input.players Input.colors 1} 
 			{System.show 'PlayersPorts crée'}
 		PlayersStatus = {CreatePlayerStatus PlayersPorts}
-		GameStatePort = {StartGame PlayerStatus}
+		GameStatePort = {StartGame PlayersStatus}
 		{System.show 'PlayersStatus crée'}
 		
 		{InitThreadForAll PlayersPorts PlayersStatus GameStatePort}
