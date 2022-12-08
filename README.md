@@ -31,4 +31,9 @@ Idées pour le player :
 
 - Fonction qui calcule le joueur le plus proche d'une case
 
-- Fonction qui calcule le nombre de tours pour aller à une case. s
+- Fonction qui calcule le nombre de tours pour aller à une case.
+
+Questions :
+
+    - Fusil et Mine chargés dès le début ?
+    - Dans la fonction InitThreadForAll, on initialise la position du joueur par une position qu'il nous donne, il faut vérifier la position donnée non ?

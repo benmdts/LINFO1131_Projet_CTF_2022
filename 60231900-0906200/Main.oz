@@ -62,6 +62,7 @@ in
 		IsDead
 		NewPosition
 		PlayerID
+        Kind
 	in
 		%---------------------------------------------------------------
 		%Tout n'est pas à jeter mais c'est pas bon comme c'est en threads, ils ont tous des States différents or qu'ils devraient avoir les mêmes. Faut trouver une solution. Mais les fonctions sont bonnes, juste le code ici en-dessous n'est pas bon :(
@@ -80,6 +81,10 @@ in
 		{Send Port move(PlayerID NewPosition)}
 		{Wait NewPosition}{Wait PlayerID}
 		{Send StatePort move(PlayerID NewPosition Port)}
+        {Send Port chargeItem(ID Kind)}
+		{Wait ID}{Wait Kind}
+        {System.show 'Problème'}
+		{Send StatePort playerCharge(ID Kind Port)}% Est-ce qu'on vérifie s'il est pas au max ? 
 		{Delay 500} % Pour afficher plus lentement, à enlever après
 		{Main Port ID StatePort}
 		end
@@ -198,24 +203,24 @@ in
 		case PlayersList 
 		of nil then 
 			State
-		[] playerstate(currentposition:Pos hp:HP id:ThisPlayerID port:Port)|T then
-			if(Position == Pos) then
+		[] PlayerState|T then
+			if(Position == PlayerState.currentposition) then
 				RemoveHP = 2 
-			else if {MoveIsNextLastPosition Pos Position} then 
+			else if {MoveIsNextLastPosition PlayerState.currentposition Position} then 
 				RemoveHP = 1
 			else 
 				RemoveHP = 0
 			end 
 		end 
 			if RemoveHP >0 then 
-				{Send WindowPort lifeUpdate(ThisPlayerID HP-RemoveHP)}
-				{SayToAllPlayers PlayersPorts sayDamageTaken(thisPlayerID RemoveHP HP-RemoveHP)}
-				if(HP-RemoveHP=<0) then 
-					{Send WindowPort removeSoldier(ThisPlayerID)}
-					{SayToAllPlayers PlayersPorts sayDeath(ThisPlayerID)}
+				{Send WindowPort lifeUpdate(PlayerState.id PlayerState.hp-RemoveHP)}
+				{SayToAllPlayers PlayersPorts sayDamageTaken(PlayerState.id RemoveHP PlayerState.hp-RemoveHP)}
+				if(PlayerState.hp-RemoveHP=<0) then 
+					{Send WindowPort removeSoldier(PlayerState.id)}
+					{SayToAllPlayers PlayersPorts sayDeath(PlayerState.id)}
 					% SKIP LE RESTE DE SON TOUR. Je vois pas comment faire pour l'instant
 				end
-				{CheckOtherPlayersNearMines {Adjoin State state(playersStatus: {ChangePlayerStatus State.playersStatus ThisPlayerID playerstate(hp:HP-RemoveHP)})} T Position}
+				{CheckOtherPlayersNearMines {Adjoin State state(playersStatus: {ChangePlayerStatus State.playersStatus PlayerState.id playerstate(hp:PlayerState.hp-RemoveHP)})} T Position}
 			else
 				{CheckOtherPlayersNearMines State T Position}
 			end
@@ -237,10 +242,13 @@ in
 		case PlayerPorts of nil then nil 
 		[]player(PlayerID PlayerPort)|T then 
 			playerstate(
-				currentposition: {List.nth Input.spawnPoints PlayerID}
+                currentposition: {List.nth Input.spawnPoints PlayerID}
 				hp : Input.startHealth
 				id : PlayerID 
 				port : PlayerPort
+				chargegun : 0
+				chargemine : 0
+				currentweapon : nil
 				)|{CreatePlayerStatus T}
 		end 
 	end 
@@ -248,11 +256,11 @@ in
 	% Change le record playerState() du player avec l'id PLAYERID
 	fun {ChangePlayerStatus PlayersList PlayerID NewValue}
 		case PlayersList of nil then nil
-		[] playerstate(currentposition:Pos hp:HP id:ThisPlayerID port:Port)|T then 
-			if ThisPlayerID == PlayerID then 
-				{Adjoin playerstate(currentposition:Pos hp:HP id:ThisPlayerID port:Port) NewValue}|T
+		[] PlayerState|T then 
+			if PlayerState.id == PlayerID then 
+				{Adjoin PlayerState NewValue}|T
 			else 
-				playerstate(currentposition:Pos hp:HP id:ThisPlayerID port:Port)|{ChangePlayerStatus T PlayerID NewValue}
+				PlayerState|{ChangePlayerStatus T PlayerID NewValue}
 			end
 		end
 	end
@@ -260,9 +268,9 @@ in
 	% Retourne le record playerstate() du player avec l'id PLAYERID
 	fun {GetPlayerState PlayersList PlayerID}
 		case PlayersList of nil then nil
-		[] playerstate(currentposition:Pos hp:HP id:ThisPlayerID port:Port)|T then 
-			if(ThisPlayerID.id == PlayerID.id) then 
-				playerstate(currentposition:Pos hp:HP id:ThisPlayerID port:Port)
+		[] PlayerState|T then 
+			if(PlayerState.id == PlayerID) then 
+				PlayerState
 			else 
 				{GetPlayerState T PlayerID}
 			end
@@ -313,20 +321,17 @@ in
 		[] changeID(ID) then 
 			{System.show 'ok'}
 			{Adjoin State state(playersStatus: {ChangePlayerStatus State.playersStatus ID.id playerstate(id: ID)})}
-		[] isAlive(ID ?Dead) then 
-			%GOOD
-			case {GetPlayerState State.playersStatus ID} of nil then skip
-			[]playerstate(currentposition:PlayerPos hp:PlayerHP id:PlayerID port:PlayerPort) then 
-			if PlayerHP ==0 then 
+		[] isAlive(ID ?Dead) then
+			if  {GetPlayerState State.playersStatus ID}.hp == 0 then 
 				Dead = true
-				else 
-					Dead = false
-				end
+			else 
+				Dead = false
 			end
 			State
 		% On donne l'id et le port du joueur qui doit être respawn 
 		[] respawn(ID Port) then 
 			{Send WindowPort initSoldier(ID {List.nth Input.spawnPoints ID.id})}
+            {Send Port respawn()}
 			% Prévenir les autres
 			{Adjoin State state(playersStatus: {ChangePlayerStatus State.playersStatus ID playerstate(currentposition: {List.nth Input.spawnPoints ID.id} hp: Input.startHealth)} )}
 		[] move(ID Position Port) then 
@@ -335,6 +340,28 @@ in
 			MovePlayerState in 
 			MovePlayerState={MovePlayer Port ID State Position} 
 			{CheckMines Port ID MovePlayerState Position State.mines}
+        [] playerCharge(ID Weapon Port) then
+            ActualGunCharge ActualMineCharge in 
+			if Weapon == mine then 
+				ActualMineCharge = {GetPlayerState State.playersStatus ID}.chargemine
+                if ActualMineCharge < Input.mineCharge then 
+				{Send Port sayCharge(ID 'mine')}
+				{Adjoin State state(playersStatus: {ChangePlayerStatus State.playersStatus ID playerstate(chargemine:ActualMineCharge+1)} )}
+                else 
+                    State
+                end 	
+			else if Weapon == gun then 
+				ActualGunCharge = {GetPlayerState State.playersStatus ID}.chargegun
+                if ActualMineCharge < Input.gunCharge then 
+				{Send Port sayCharge(ID 'gun')}
+				{Adjoin State state(playersStatus: {ChangePlayerStatus State.playersStatus ID playerstate(chargegun:ActualGunCharge+1)})}
+                else 
+                    State
+                end 
+			else 
+				State
+			end
+		end 
 		end 
     end
 

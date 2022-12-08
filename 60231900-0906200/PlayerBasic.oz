@@ -36,6 +36,7 @@ define
 	SayShoot
 	TakeFlag
 	DropFlag
+	Respawn
 
 	% Helper functions
 	RandomInRange = fun {$ Min Max} Min+({OS.rand}mod(Max-Min+1)) end
@@ -89,6 +90,7 @@ in
 			[] dropFlag(?ID ?Flag) then {DropFlag State ID Flag}
 			[] sayFlagTaken(ID Flag) then {SayFlagTaken State ID Flag}
 			[] sayFlagDropped(ID Flag) then {SayFlagDropped State ID flag}
+			[] respawn() then {Respawn State}
         end
     end
 
@@ -147,7 +149,7 @@ in
 
 	fun {ChargeItem State ?ID ?Kind} 
 		ID = State.id
-		Kind = null
+		Kind = mine
 		State
 	end
 
@@ -201,4 +203,8 @@ in
 	fun {SayFlagDropped State ID Flag}
 		State
 	end
+	fun {Respawn State}
+		{Adjoin State state(hp:Input.startHealth position: State.startPosition)}
+	end
+
 end
