@@ -36,7 +36,6 @@ define
 	SayShoot
 	TakeFlag
 	DropFlag
-	Respawn
 
 	% Helper functions
 	RandomInRange = fun {$ Min Max} Min+({OS.rand}mod(Max-Min+1)) end
@@ -90,7 +89,6 @@ in
 			[] dropFlag(?ID ?Flag) then {DropFlag State ID Flag}
 			[] sayFlagTaken(ID Flag) then {SayFlagTaken State ID Flag}
 			[] sayFlagDropped(ID Flag) then {SayFlagDropped State ID flag}
-			[] respawn(ID) then {Respawn State ID}
         end
     end
 
@@ -109,7 +107,6 @@ in
 		CurrentPosition = State.position
 		case CurrentPosition 
 			of pt(x:X y:Y) then 
-				{System.show X}
 				if X < 6 then 
 					Position = pt(x:CurrentPosition.x + 1 y:CurrentPosition.y)
 				else if X > 6 then 
@@ -172,8 +169,13 @@ in
 		State
 	end
 
+	% À modifier ici le joueur modifie son état quand on lui dit qu'il est mort mais les autres ne font rien
 	fun {SayDeath State ID}
-		State
+		if ID = State.ID then 
+			{Adjoin State state(position:State.startPosition hp:Input.startHealth)}
+		else 
+			State
+		end 
 	end
 
 	fun {SayDamageTaken State ID Damage LifeLeft}
@@ -199,7 +201,4 @@ in
 	fun {SayFlagDropped State ID Flag}
 		State
 	end
-	fun {Respawn ID State}
-		{Adjoin State state(hp:Input.startHealth)}
-	end 
 end

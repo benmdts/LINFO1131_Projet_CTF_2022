@@ -25,13 +25,13 @@ define
 	GetPlayerState
 	ChangePlayerStatus
 	CheckOtherPlayersNearMines
-	AjoutMineFictive
 	StartGame
 	TreatStream
 	MatchHead
 	PlayersStatus
 	GameStatePort
 	CheckNotMerging
+	RemoveMineFromList
 
 	
 
@@ -61,6 +61,7 @@ in
 		TestState
 		IsDead
 		NewPosition
+		PlayerID
 	in
 		%---------------------------------------------------------------
 		%Tout n'est pas à jeter mais c'est pas bon comme c'est en threads, ils ont tous des States différents or qu'ils devraient avoir les mêmes. Faut trouver une solution. Mais les fonctions sont bonnes, juste le code ici en-dessous n'est pas bon :(
@@ -70,14 +71,17 @@ in
 		{Send StatePort isAlive(ID IsDead)}
 		{Wait IsDead}
 		if(IsDead==true) then 
-			{Wait Input.respawnDelay}
+			% S' il est mort on attend le temps de RESPAWNDELAY et ensuite on envoie le nouvel état au StatePort et on recommence la boucle depuis le début
+			{Delay Input.respawnDelay}
 			{Send StatePort respawn(ID Port)}
-		end
-		{Send Port move(ID NewPosition)}
-		{Wait NewPosition}{Wait ID}
-		{Send StatePort move(ID NewPosition Port)}
-		{Delay 500}
+			{Main Port ID StatePort}
+		else 
+		{Send Port move(PlayerID NewPosition)}
+		{Wait NewPosition}{Wait PlayerID}
+		{Send StatePort move(PlayerID NewPosition Port)}
+		{Delay 500} % Pour afficher plus lentement, à enlever après
 		{Main Port ID StatePort}
+		end
 	end
 
 
@@ -117,8 +121,6 @@ in
 
 	%Autorisation move en diagonale ?
 	fun {MoveIsNextLastPosition NewPosition LastPosition}
-		{System.show NewPosition}
-		{System.show LastPosition}
 		if(NewPosition.x==LastPosition.x-1 orelse NewPosition.x==LastPosition.x+1 orelse NewPosition.x==LastPosition.x) then 
 			if(NewPosition.y==LastPosition.y-1 orelse NewPosition.y==LastPosition.y+1 orelse NewPosition.y==LastPosition.y) then
 				true
@@ -151,27 +153,51 @@ in
 			end
 		end
 	end
+
+	/*Vérifie si le player a marché sur une mine, si oui, alors : 
+		- On enlève 2 de vie sur l'interface pour le joueur
+		- On dit à chaque joueur que le joueur a pris des dégats 
+		- Si le joueur est mort, on envoie a tout le monde qu'il est mort et on l'enlève de l'interface
+		- On dit a tout le monde que la mine a explosé 
+		- On enlève la mine de l'interface
+		- On modifie l'état -> On enlève la mine et on update les hp du joueur
 	
-	/*
-	fun {CheckMines Port ID State Position MinesList}
+	Il faut encore regarder si un autre joueur est touché par la mine ou pas 
+	*/
+	fun {CheckMines Port ID State Position MinesList} 
 		case MinesList of nil then State
-		[] mine(pos:MinePos)|T then 
-			if MinePos == Position then 
-				{Send WindowPort lifeUpdate(State.hp-2)}%Enlève 2 de vie pour le mec car il a marché dessus
-				{SayToAllPlayers PlayersPorts sayDamageTaken(ID 2 State.hp-2)}
-				if(State.hp-2==0) then 
+		[] mine(pos:MinePos)|T then 		
+			if MinePos == Position then PlayerHp in 
+				PlayerHp = {GetPlayerState State.playersStatus ID}.hp 
+				{Send WindowPort lifeUpdate(ID PlayerHp-2)}%Enlève 2 de vie pour le mec car il a marché dessus
+				{SayToAllPlayers PlayersPorts sayDamageTaken(ID 2 PlayerHp-2)}
+				if(PlayerHp-2=<0) then 
 					{SayToAllPlayers PlayersPorts sayDeath(ID)}
 					{Send WindowPort removeSoldier(ID)}
 					% SKIP LE RESTE DE SON TOUR. Je vois pas comment faire pour l'instant
 				end 
 				{SayToAllPlayers PlayersPorts sayMineExplode(mine(pos:MinePos))}
-				{Send WindowPort mine(pos:MinePos)}
-				{Adjoin {CheckOtherPlayersNearMines Port ID State Position mine(pos:MinePos)} state(playersStatus: {ChangePlayerStatus State.playersStatus ID playerstate(hp:State.hp-1)})}
-				else 
-					{CheckMines Port ID State Position T}
+				{Send WindowPort removeMine(mine(pos:MinePos))}
+				% Regarder si d'autres personnes sont pas sur la mine
+				{Adjoin State state(mines:{RemoveMineFromList State.mines Position} playersStatus:{ChangePlayerStatus State.playersStatus ID playerstate(hp: PlayerHp-2)})}
+			else 
+				{CheckMines Port ID State Position T}
 			end 
 		end 
 	end 
+
+	%Enlève la mine de la liste. Utile pour enlever la mine de l'état
+	fun {RemoveMineFromList MinesList Position}
+		case MinesList of nil then nil
+		[] mine(pos:MinePos)|T then 
+			if MinePos == Position then 
+				T
+			else 
+				mine(pos:MinePos)|{RemoveMineFromList T Position}
+			end
+		end 
+	end
+	/* 
 	fun {CheckOtherPlayersNearMines Port ID State PlayersList Position}
 		case PlayersList 
 		of nil then 
@@ -265,7 +291,7 @@ in
 		thread
 			{TreatStream
 			 	Stream
-				state(mines:nil flags:Input.flags playersStatus: PlayersStatus)
+				state(mines:[mine(pos:pt(x:6 y:10))] flags:Input.flags playersStatus: PlayersStatus)
 			}
 		end
 		Port
@@ -276,18 +302,15 @@ in
             of H|T then {System.show State} {TreatStream T {MatchHead H State}}
         end
     end
-
 	% Head = Stream avec les messages donnés par la fonction main 
 	% State = État de la partie
 	fun {MatchHead Head State}
         case Head of nil then nil 
-		[] isAlive(ID ?Dead) then  
+		[] isAlive(ID ?Dead) then 
 			case {GetPlayerState State.playersStatus ID} of nil then skip
 			[]playerstate(currentposition:PlayerPos hp:PlayerHP id:PlayerID port:PlayerPort) then 
 			if PlayerHP ==0 then 
-				{System.show 'Le joueur est mort'}
 				Dead = true
-				%Comment faire si on respawn pour changer l'état, car on le change potentiellement après, on crée plusieurs variables ?
 				else 
 					Dead = false
 				end
@@ -295,12 +318,14 @@ in
 			State
 		% On donne l'id et le port du joueur qui doit être respawn 
 		[] respawn(ID Port) then 
-			{Send Port respawn(ID)}
-			{Send WindowPort moveSoldier(ID State.startPosition)}
+			{Send WindowPort initSoldier(ID {List.nth Input.spawnPoints ID.id})}
 			% Prévenir les autres
-			{Adjoin State state(playersStatus: {ChangePlayerStatus State.playersStatus ID playerstate(currentposition: {List.nth spawnPoints ID} hp: Input.startHealth)} )}
+			{Adjoin State state(playersStatus: {ChangePlayerStatus State.playersStatus ID playerstate(currentposition: {List.nth Input.spawnPoints ID.id} hp: Input.startHealth)} )}
 		[] move(ID Position Port) then 
-			{MovePlayer Port ID State Position}
+			% On vérifie s'il a marché sur une mine juste après
+			MovePlayerState in 
+			MovePlayerState={MovePlayer Port ID State Position} 
+			{CheckMines Port ID MovePlayerState Position State.mines}
 		end 
     end
 
@@ -312,6 +337,7 @@ in
 		% Open window
 		{Send WindowPort buildWindow}
 		{System.show buildWindow}
+		{Delay 1000}
 
         % Create port for players
 		PlayersPorts = {DoListPlayer Input.players Input.colors 1} 
