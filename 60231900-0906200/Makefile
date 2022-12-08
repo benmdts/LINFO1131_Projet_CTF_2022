@@ -36,7 +36,9 @@ clean-main :
 player : 
 	rm PlayerBasic.ozf
 	$(OZC) -c PlayerBasic.ozs
+
 reset-main: clean-main main run
+
 run:
 	$(OZENGINE) Main.ozf
 

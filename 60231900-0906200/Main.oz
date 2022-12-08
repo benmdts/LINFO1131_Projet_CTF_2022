@@ -53,7 +53,7 @@ in
 	end
 
 	SimulatedThinking = proc{$} {Delay ({OS.rand} mod (Input.thinkMax - Input.thinkMin) + Input.thinkMin)} end
-
+	%ICI ID est un record
 	proc {Main Port ID StatePort}
 		Result 
 		NewStateMove
@@ -76,6 +76,7 @@ in
 			{Send StatePort respawn(ID Port)}
 			{Main Port ID StatePort}
 		else 
+		%PLAYERID aussi un record
 		{Send Port move(PlayerID NewPosition)}
 		{Wait NewPosition}{Wait PlayerID}
 		{Send StatePort move(PlayerID NewPosition Port)}
@@ -165,21 +166,14 @@ in
 	Il faut encore regarder si un autre joueur est touché par la mine ou pas 
 	*/
 	fun {CheckMines Port ID State Position MinesList} 
+		StatePlayerAfterMines in
 		case MinesList of nil then State
 		[] mine(pos:MinePos)|T then 		
 			if MinePos == Position then PlayerHp in 
-				PlayerHp = {GetPlayerState State.playersStatus ID}.hp 
-				{Send WindowPort lifeUpdate(ID PlayerHp-2)}%Enlève 2 de vie pour le mec car il a marché dessus
-				{SayToAllPlayers PlayersPorts sayDamageTaken(ID 2 PlayerHp-2)}
-				if(PlayerHp-2=<0) then 
-					{SayToAllPlayers PlayersPorts sayDeath(ID)}
-					{Send WindowPort removeSoldier(ID)}
-					% SKIP LE RESTE DE SON TOUR. Je vois pas comment faire pour l'instant
-				end 
-				{SayToAllPlayers PlayersPorts sayMineExplode(mine(pos:MinePos))}
+				StatePlayerAfterMines = {CheckOtherPlayersNearMines State State.playersStatus Position}
 				{Send WindowPort removeMine(mine(pos:MinePos))}
 				% Regarder si d'autres personnes sont pas sur la mine
-				{Adjoin State state(mines:{RemoveMineFromList State.mines Position} playersStatus:{ChangePlayerStatus State.playersStatus ID playerstate(hp: PlayerHp-2)})}
+				{Adjoin StatePlayerAfterMines state(mines:{RemoveMineFromList State.mines Position})}
 			else 
 				{CheckMines Port ID State Position T}
 			end 
@@ -197,28 +191,37 @@ in
 			end
 		end 
 	end
-	/* 
-	fun {CheckOtherPlayersNearMines Port ID State PlayersList Position}
+
+	fun {CheckOtherPlayersNearMines State PlayersList Position}
+		RemoveHP in
 		case PlayersList 
 		of nil then 
 			State
-		[] playerstate(currentposition:Pos hp:HP id:ThisPlayerID port:Port)|T then 
-			if {MoveIsNextLastPosition Pos Position} then 
-				{Send WindowPort lifeUpdate(HP-1)}
-				{SayToAllPlayers PlayersPorts sayDamageTaken(ID 1 HP-1)}
-				if(HP-1==0) then 
-					{SayToAllPlayers PlayersPorts sayDeath(ThisPlayerID)}
+		[] playerstate(currentposition:Pos hp:HP id:ThisPlayerID port:Port)|T then
+			if(Position == Pos) then
+				RemoveHP = 2 
+			else if {MoveIsNextLastPosition Pos Position} then 
+				RemoveHP = 1
+			else 
+				RemoveHP = 0
+			end 
+		end 
+			if RemoveHP >0 then 
+				{Send WindowPort lifeUpdate(HP-RemoveHP)}
+				{SayToAllPlayers PlayersPorts sayDamageTaken(thisPlayerID RemoveHP HP-RemoveHP)}
+				if(HP-RemoveHP=<0) then 
+					% ICI PAS BON ID
+					{System.show 'REMOVE'}
 					{Send WindowPort removeSoldier(ThisPlayerID)}
+					{SayToAllPlayers PlayersPorts sayDeath(ThisPlayerID)}
 					% SKIP LE RESTE DE SON TOUR. Je vois pas comment faire pour l'instant
 				end
-				{CheckOtherPlayersNearMines Port ID {Adjoin State state(playersStatus: {ChangePlayerStatus State.playersStatus ThisPlayerID playerstate(hp:HP-1)})} T Position}
-				else
-					{CheckOtherPlayersNearMines Port ID State T Position}
-			end 
-		
+				{CheckOtherPlayersNearMines {Adjoin State state(playersStatus: {ChangePlayerStatus State.playersStatus ThisPlayerID playerstate(hp:HP-RemoveHP)})} T Position}
+			else
+				{CheckOtherPlayersNearMines State T Position}
+			end
 		end
-
-	end */
+	end 
 
 	% Previens tous les joueurs avec le message MESSAGE
 	proc {SayToAllPlayers PlayersPorts Message}
@@ -247,7 +250,7 @@ in
 	fun {ChangePlayerStatus PlayersList PlayerID NewValue}
 		case PlayersList of nil then nil
 		[] playerstate(currentposition:Pos hp:HP id:ThisPlayerID port:Port)|T then 
-			if ThisPlayerID == PlayerID.id then 
+			if ThisPlayerID == PlayerID then 
 				{Adjoin playerstate(currentposition:Pos hp:HP id:ThisPlayerID port:Port) NewValue}|T
 			else 
 				playerstate(currentposition:Pos hp:HP id:ThisPlayerID port:Port)|{ChangePlayerStatus T PlayerID NewValue}
@@ -259,7 +262,7 @@ in
 	fun {GetPlayerState PlayersList PlayerID}
 		case PlayersList of nil then nil
 		[] playerstate(currentposition:Pos hp:HP id:ThisPlayerID port:Port)|T then 
-			if(ThisPlayerID == PlayerID.id) then 
+			if(ThisPlayerID.id == PlayerID.id) then 
 				playerstate(currentposition:Pos hp:HP id:ThisPlayerID port:Port)
 			else 
 				{GetPlayerState T PlayerID}
@@ -273,7 +276,9 @@ in
 			{Send WindowPort initSoldier(null pt(x:0 y:0))}
 			{DrawFlags Input.flags WindowPort}
 		[] player(_ Port)|Next then ID Position in
+			% Correct ? le joueur dit oui il arrive ? Faut vérifier si on est bien au point de spawn non ?
 			{Send Port initPosition(ID Position)}
+			{Send GameStatePort changeID(ID)}
 			{Send WindowPort initSoldier(ID Position)}
 			{Send WindowPort lifeUpdate(ID Input.startHealth)}
 			thread
@@ -306,7 +311,11 @@ in
 	% State = État de la partie
 	fun {MatchHead Head State}
         case Head of nil then nil 
+		[] changeID(ID) then 
+			{System.show 'ok'}
+			{Adjoin State state(playersStatus: {ChangePlayerStatus State.playersStatus ID.id playerstate(id: ID)})}
 		[] isAlive(ID ?Dead) then 
+			%GOOD
 			case {GetPlayerState State.playersStatus ID} of nil then skip
 			[]playerstate(currentposition:PlayerPos hp:PlayerHP id:PlayerID port:PlayerPort) then 
 			if PlayerHP ==0 then 
@@ -322,6 +331,7 @@ in
 			% Prévenir les autres
 			{Adjoin State state(playersStatus: {ChangePlayerStatus State.playersStatus ID playerstate(currentposition: {List.nth Input.spawnPoints ID.id} hp: Input.startHealth)} )}
 		[] move(ID Position Port) then 
+			%I est un record
 			% On vérifie s'il a marché sur une mine juste après
 			MovePlayerState in 
 			MovePlayerState={MovePlayer Port ID State Position} 
@@ -337,7 +347,7 @@ in
 		% Open window
 		{Send WindowPort buildWindow}
 		{System.show buildWindow}
-		{Delay 1000}
+		{Delay 5000}
 
         % Create port for players
 		PlayersPorts = {DoListPlayer Input.players Input.colors 1} 

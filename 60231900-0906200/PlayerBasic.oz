@@ -171,7 +171,7 @@ in
 
 	% À modifier ici le joueur modifie son état quand on lui dit qu'il est mort mais les autres ne font rien
 	fun {SayDeath State ID}
-		if ID = State.ID then 
+		if ID == State then 
 			{Adjoin State state(position:State.startPosition hp:Input.startHealth)}
 		else 
 			State
