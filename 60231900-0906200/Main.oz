@@ -101,6 +101,7 @@ in
 % -------Vérifie la validité d'une nouvelle position-------%	
 	
 	%3 conditions vérifiées : Pas un mouvement statique, pas un mouvement qui n'est pas dans le range et pas un mouvement en dehors de la map
+	% TO DO : VÉRIFIER SI PAS DANS LA BASE ADVERSE
 	fun {CheckValidMove NewPosition State ID}
 		LastPosition
 	in
@@ -207,11 +208,9 @@ in
 			end 
 		end 
 			if RemoveHP >0 then 
-				{Send WindowPort lifeUpdate(HP-RemoveHP)}
+				{Send WindowPort lifeUpdate(ThisPlayerID HP-RemoveHP)}
 				{SayToAllPlayers PlayersPorts sayDamageTaken(thisPlayerID RemoveHP HP-RemoveHP)}
 				if(HP-RemoveHP=<0) then 
-					% ICI PAS BON ID
-					{System.show 'REMOVE'}
 					{Send WindowPort removeSoldier(ThisPlayerID)}
 					{SayToAllPlayers PlayersPorts sayDeath(ThisPlayerID)}
 					% SKIP LE RESTE DE SON TOUR. Je vois pas comment faire pour l'instant
@@ -347,7 +346,7 @@ in
 		% Open window
 		{Send WindowPort buildWindow}
 		{System.show buildWindow}
-		{Delay 5000}
+		{Delay 3000}
 
         % Create port for players
 		PlayersPorts = {DoListPlayer Input.players Input.colors 1} 
