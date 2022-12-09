@@ -159,12 +159,15 @@ in
 	end
 
 	fun {SayCharge State ID Kind}
-		State
+		if Kind==gun then
+			{Adjoin State state(gunReloads:State.gunReloads+1)}
+		else
+			{Adjoin State state(mineReloads:State.mineReloads+1)}
+		end
 	end
 
 	fun {FireItem State ?ID ?Kind}
-		{System.show State.mineReloads}
-		if (State.position.x==6) then
+		if (State.mineReloads==5) then 
 			ID = State.id
 			%Kind =gun(pos:pt(x:State.position.x+1 y:State.position.y+1))
 			Kind =mine(pos:pt(x:State.position.x y:State.position.y))
@@ -175,7 +178,11 @@ in
 	end
 
 	fun {SayMinePlaced State ID Mine}
-		State
+		if (ID == State.id) then
+			{Adjoin State state(mineReloads:0)}
+		else
+			{Adjoin State state(gunReloads:0)}
+		end
 	end
 
 	fun {SayShoot State ID Position}

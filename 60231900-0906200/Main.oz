@@ -338,7 +338,7 @@ in
 			if (Weapon == mine) then 
 				ActualMineCharge = {GetPlayerState State.playersStatus ID}.chargemine
                 if ActualMineCharge < Input.mineCharge then 
-					{Send Port sayCharge(ID 'mine')}
+					{Send Port sayCharge(ID mine)}
 					{Adjoin State state(playersStatus: {ChangePlayerStatus State.playersStatus ID playerstate(chargemine:ActualMineCharge+1)} )}
 				else 
 					State
@@ -346,7 +346,7 @@ in
 			elseif (Weapon == gun) then 
 				ActualGunCharge = {GetPlayerState State.playersStatus ID}.chargegun
                 if ActualGunCharge < Input.gunCharge then 
-					{Send Port sayCharge(ID 'gun')}
+					{Send Port sayCharge(ID gun)}
 					{Adjoin State state(playersStatus: {ChangePlayerStatus State.playersStatus ID playerstate(chargegun:ActualGunCharge+1)})}
 				else 
 					State
@@ -355,7 +355,7 @@ in
 				State
 			end
 		[] useWeapon(ID Weapon Port) then
-			Temp
+			TempState
 		in
 			if ({Record.label Weapon}==mine andthen ({GetPlayerState State.playersStatus ID}.chargemine == Input.mineCharge)) then 
 				%On regarde que le player qui pose la mine est pas sur le flag (J'imagine qu'on peut pas poser sur un flag ?)
@@ -364,16 +364,17 @@ in
 					{SayToAllPlayers PlayersPorts sayMinePlaced(ID Weapon)}
 					%Display de mine
 					{Send WindowPort putMine(Weapon)}
-					Temp=state(mines: {List.append State.mines [Weapon]})
+					TempState={Adjoin State state(playersStatus: {ChangePlayerStatus State.playersStatus ID playerstate(chargemine:0)})}
 					% On merge 2 records pour ajouter la nouvelle mine
-					{Adjoin State Temp}
+					{Adjoin TempState state(mines: {List.append State.mines [Weapon]})}
+				else
+					State
 				end
+			elseif ({Record.label Weapon}==gun andthen ({GetPlayerState State.playersStatus ID}.chargegun == Input.gunCharge)) then
+				State
 			else
 				State
 			end
-			/*if ({Record.label Weapon}==gun andthen ({GetPlayerState State.playersStatus ID}.chargegun == Input.gunCharge)) then
-				State
-			end*/
 		end 
     end
 
