@@ -87,7 +87,7 @@ in
     MineCharge = 5
      
 %%%% Respawn
-    RespawnDelay = 5000
+    RespawnDelay = 1000
 
 %%%% Flags
     Flags = [flag(pos:pt(x:3 y:4) color:red) flag(pos:pt(x:10 y:9) color:blue)]

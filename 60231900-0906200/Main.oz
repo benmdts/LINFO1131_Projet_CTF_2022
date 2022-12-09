@@ -32,6 +32,7 @@ define
 	GameStatePort
 	CheckNotMerging
 	RemoveMineFromList
+	CheckNotWallSpawn
 
 	
 
@@ -63,6 +64,8 @@ in
 		NewPosition
 		PlayerID
         Kind
+		HasMoved
+		Fire
 	in
 		%---------------------------------------------------------------
 		%Tout n'est pas à jeter mais c'est pas bon comme c'est en threads, ils ont tous des States différents or qu'ils devraient avoir les mêmes. Faut trouver une solution. Mais les fonctions sont bonnes, juste le code ici en-dessous n'est pas bon :(
@@ -70,24 +73,30 @@ in
 		%Regarde s'il est en vie
 
 		{Send StatePort isAlive(ID IsDead)}
-		{Wait IsDead}
 		if(IsDead==true) then 
 			% S' il est mort on attend le temps de RESPAWNDELAY et ensuite on envoie le nouvel état au StatePort et on recommence la boucle depuis le début
 			{Delay Input.respawnDelay}
 			{Send StatePort respawn(ID Port)}
-			{Main Port ID StatePort}
-		else 
+		end
+
 		%PLAYERID aussi un record
 		{Send Port move(PlayerID NewPosition)}
 		{Wait NewPosition}{Wait PlayerID}
-		{Send StatePort move(PlayerID NewPosition Port)}
+		{Send StatePort move(PlayerID NewPosition Port HasMoved)}
+		{Wait HasMoved}
+
         {Send Port chargeItem(ID Kind)}
-		{Wait ID}{Wait Kind}
-        {System.show 'Problème'}
+		{Wait Kind}
 		{Send StatePort playerCharge(ID Kind Port)}% Est-ce qu'on vérifie s'il est pas au max ? 
+
+		
+		{Send Port fireItem(ID Fire)}
+		{Wait Fire}
+		{Send StatePort useWeapon(ID Fire Port)}% Est-ce qu'on vérifie s'il est pas au max ? 
+		
+
 		{Delay 500} % Pour afficher plus lentement, à enlever après
 		{Main Port ID StatePort}
-		end
 	end
 
 
@@ -111,55 +120,41 @@ in
 		LastPosition
 	in
 		LastPosition={GetPlayerState State.playersStatus ID}.currentposition
-		if({CheckNotSameMove NewPosition LastPosition}==true andthen {MoveIsNextLastPosition NewPosition LastPosition}==true andthen {MoveIsInTheMap NewPosition}==true) andthen {CheckNotMerging NewPosition State.playersStatus ID} then 
-			true
-		else 
-			false
-		end 
+		({CheckNotSameMove NewPosition LastPosition} andthen {MoveIsNextLastPosition NewPosition LastPosition} andthen {MoveIsInTheMap NewPosition} andthen {CheckNotMerging NewPosition State.playersStatus ID} andthen {CheckNotWallSpawn NewPosition ID.id+1})
 	end
 	fun {CheckNotSameMove NewPosition LastPosition}
-		if(NewPosition.x==LastPosition.x andthen LastPosition.y==NewPosition.y) then 
-			{System.show 'Même move'}
-			false
-		else 
-			true
-		end 
+		(NewPosition.x\=LastPosition.x orelse NewPosition.y\=LastPosition.y)
 	end
 
-	%Autorisation move en diagonale ?
 	fun {MoveIsNextLastPosition NewPosition LastPosition}
-		if(NewPosition.x==LastPosition.x-1 orelse NewPosition.x==LastPosition.x+1 orelse NewPosition.x==LastPosition.x) then 
-			if(NewPosition.y==LastPosition.y-1 orelse NewPosition.y==LastPosition.y+1 orelse NewPosition.y==LastPosition.y) then
-				true
-				else 
-					{System.show 'Pas à côté de l ancienne position'}
-					false
-			end 
-		else 
-			false
-		end 
+		(NewPosition.x==LastPosition.x-1 orelse NewPosition.x==LastPosition.x+1 orelse NewPosition.x==LastPosition.x) andthen (NewPosition.y==LastPosition.y-1 orelse NewPosition.y==LastPosition.y+1 orelse NewPosition.y==LastPosition.y)
 	end 
 	
 	fun {MoveIsInTheMap NewPosition}
-		if(NewPosition.x=<Input.nRow andthen NewPosition.y =<Input.nColumn andthen NewPosition.x>=1 andthen NewPosition.y >=1) then
-			true
-		else 
-			{System.show 'Pas dans la map'}
-			false 
-		end 
+		(NewPosition.x=<Input.nRow andthen NewPosition.y =<Input.nColumn andthen NewPosition.x>=1 andthen NewPosition.y >=1)
 	end 
 	
 	fun {CheckNotMerging NewPosition State ID}
 		case State of nil then true
 		[] H|T then 
 			if H.id\=ID andthen NewPosition==H.currentposition then
-				{System.show 'Place déjà occupée'}
 				false
 			else
 				{CheckNotMerging NewPosition T ID}
 			end
 		end
 	end
+
+	%Check si on rentre pas dans la base adverse ou dans un mur comme un teu teu
+	fun {CheckNotWallSpawn NewPosition ID}
+		Tile
+		Team
+	in
+		Team=ID mod 2
+		Tile={List.nth {List.nth Input.map NewPosition.x} NewPosition.y}-1
+		(Tile==~1 orelse Tile==Team)
+	end
+
 
 	/*Vérifie si le player a marché sur une mine, si oui, alors : 
 		- On enlève 2 de vie sur l'interface pour le joueur
@@ -256,8 +251,8 @@ in
 	% Change le record playerState() du player avec l'id PLAYERID
 	fun {ChangePlayerStatus PlayersList PlayerID NewValue}
 		case PlayersList of nil then nil
-		[] PlayerState|T then 
-			if PlayerState.id == PlayerID then 
+		[] PlayerState|T then
+			if PlayerState.id == PlayerID then
 				{Adjoin PlayerState NewValue}|T
 			else 
 				PlayerState|{ChangePlayerStatus T PlayerID NewValue}
@@ -303,7 +298,7 @@ in
 		thread
 			{TreatStream
 			 	Stream
-				state(mines:[mine(pos:pt(x:6 y:10))] flags:Input.flags playersStatus: PlayersStatus)
+				state(mines:nil flags:Input.flags playersStatus: PlayersStatus)
 			}
 		end
 		Port
@@ -322,11 +317,7 @@ in
 			{System.show 'ok'}
 			{Adjoin State state(playersStatus: {ChangePlayerStatus State.playersStatus ID.id playerstate(id: ID)})}
 		[] isAlive(ID ?Dead) then
-			if  {GetPlayerState State.playersStatus ID}.hp == 0 then 
-				Dead = true
-			else 
-				Dead = false
-			end
+			Dead = {GetPlayerState State.playersStatus ID}.hp =< 0 
 			State
 		% On donne l'id et le port du joueur qui doit être respawn 
 		[] respawn(ID Port) then 
@@ -334,34 +325,55 @@ in
             {Send Port respawn()}
 			% Prévenir les autres
 			{Adjoin State state(playersStatus: {ChangePlayerStatus State.playersStatus ID playerstate(currentposition: {List.nth Input.spawnPoints ID.id} hp: Input.startHealth)} )}
-		[] move(ID Position Port) then 
+		[] move(ID Position Port ?HasMoved) then 
 			%I est un record
 			% On vérifie s'il a marché sur une mine juste après
 			MovePlayerState in 
-			MovePlayerState={MovePlayer Port ID State Position} 
-			{CheckMines Port ID MovePlayerState Position State.mines}
+			MovePlayerState={CheckMines Port ID {MovePlayer Port ID State Position} Position State.mines}
+			HasMoved=true
+			MovePlayerState
         [] playerCharge(ID Weapon Port) then
-            ActualGunCharge ActualMineCharge in 
-			if Weapon == mine then 
+            ActualGunCharge ActualMineCharge 
+		in 
+			if (Weapon == mine) then 
 				ActualMineCharge = {GetPlayerState State.playersStatus ID}.chargemine
                 if ActualMineCharge < Input.mineCharge then 
-				{Send Port sayCharge(ID 'mine')}
-				{Adjoin State state(playersStatus: {ChangePlayerStatus State.playersStatus ID playerstate(chargemine:ActualMineCharge+1)} )}
-                else 
-                    State
-                end 	
-			else if Weapon == gun then 
+					{Send Port sayCharge(ID 'mine')}
+					{Adjoin State state(playersStatus: {ChangePlayerStatus State.playersStatus ID playerstate(chargemine:ActualMineCharge+1)} )}
+				else 
+					State
+				end
+			elseif (Weapon == gun) then 
 				ActualGunCharge = {GetPlayerState State.playersStatus ID}.chargegun
-                if ActualMineCharge < Input.gunCharge then 
-				{Send Port sayCharge(ID 'gun')}
-				{Adjoin State state(playersStatus: {ChangePlayerStatus State.playersStatus ID playerstate(chargegun:ActualGunCharge+1)})}
-                else 
-                    State
+                if ActualGunCharge < Input.gunCharge then 
+					{Send Port sayCharge(ID 'gun')}
+					{Adjoin State state(playersStatus: {ChangePlayerStatus State.playersStatus ID playerstate(chargegun:ActualGunCharge+1)})}
+				else 
+					State
                 end 
 			else 
 				State
 			end
-		end 
+		[] useWeapon(ID Weapon Port) then
+			Temp
+		in
+			if ({Record.label Weapon}==mine andthen ({GetPlayerState State.playersStatus ID}.chargemine == Input.mineCharge)) then 
+				%On regarde que le player qui pose la mine est pas sur le flag (J'imagine qu'on peut pas poser sur un flag ?)
+				if ({List.member {GetPlayerState State.playersStatus ID}.currentposition State.flags}==false andthen {GetPlayerState State.playersStatus ID}.currentposition == Weapon.pos) then
+					%Dis a tous les joueurs qu'il a posé une mine
+					{SayToAllPlayers PlayersPorts sayMinePlaced(ID Weapon)}
+					%Display de mine
+					{Send WindowPort putMine(Weapon)}
+					Temp=state(mines: {List.append State.mines [Weapon]})
+					% On merge 2 records pour ajouter la nouvelle mine
+					{Adjoin State Temp}
+				end
+			else
+				State
+			end
+			/*if ({Record.label Weapon}==gun andthen ({GetPlayerState State.playersStatus ID}.chargegun == Input.gunCharge)) then
+				State
+			end*/
 		end 
     end
 
@@ -382,5 +394,5 @@ in
 		
 		{InitThreadForAll PlayersPorts PlayersStatus GameStatePort}
 
-		end
+	end
 end

@@ -1,10 +1,10 @@
 Game controller (Main oz) :
 
-1.  DONE juste remettre le message respawn
+1.  DONE
 2.  DONE
-3.  DONE juste regarder si c'est pas dans la base
+3.  DONE
 4.  DONE juste comment skip le tour d'une personne qui est morte car elle était à côté de la mine
-5.  Ask the player what weapon it wants to charge (gun or mine).
+5.  DONE
 6.  Ask the player what weapon it wants to use (place a mine or shoot at something). Check if the player
     can indeed use that weapon, and if so send a message notifying everyone, then reset the charge counter
     to 0 for that weapon. If a mine is exploded as a result, notify everyone that it has exploded and apply

@@ -109,9 +109,9 @@ in
 		CurrentPosition = State.position
 		case CurrentPosition 
 			of pt(x:X y:Y) then 
-				if X < 6 then 
+				if X < 7 then 
 					Position = pt(x:CurrentPosition.x + 1 y:CurrentPosition.y)
-				else if X > 6 then 
+				else if X > 7 then 
 					Position = pt(x:CurrentPosition.x - 1 y:CurrentPosition.y)
 				else 
 					Position = pt(x:CurrentPosition.x y:CurrentPosition.y)
@@ -148,8 +148,13 @@ in
 	end
 
 	fun {ChargeItem State ?ID ?Kind} 
-		ID = State.id
-		Kind = mine
+		if (State.position.x==20)then
+			ID = State.id
+			Kind = gun
+		else
+			ID = State.id
+			Kind = mine
+		end
 		State
 	end
 
@@ -158,8 +163,14 @@ in
 	end
 
 	fun {FireItem State ?ID ?Kind}
-		ID = State.id
-		Kind = null
+		{System.show State.mineReloads}
+		if (State.position.x==6) then
+			ID = State.id
+			%Kind =gun(pos:pt(x:State.position.x+1 y:State.position.y+1))
+			Kind =mine(pos:pt(x:State.position.x y:State.position.y))
+		else
+			Kind=null()
+		end
 		State
 	end
 
@@ -175,7 +186,7 @@ in
 	fun {SayDeath State ID}
 		if ID == State then 
 			{Adjoin State state(position:State.startPosition hp:Input.startHealth)}
-		else 
+		else
 			State
 		end 
 	end
