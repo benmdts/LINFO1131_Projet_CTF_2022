@@ -33,6 +33,8 @@ define
 	CheckNotMerging
 	RemoveMineFromList
 	CheckNotWallSpawn
+	TryShootPlayer
+	ValidHit
 
 	
 
@@ -222,6 +224,26 @@ in
 		end
 	end 
 
+	%Regarde si un shoot de gun est valide en distance de manhattan
+	fun {ValidHit PlayerPos WeaponPos}
+		Distance
+	in
+		Distance={Abs PlayerPos.x-WeaponPos.x}+{Abs PlayerPos.y-WeaponPos.y}
+		Distance==2 orelse Distance==1
+	end
+
+	%TryToShootPlayer renvoie le nouvel état des joueurs (si personne a été touché ca reste le meme)
+	fun {TryShootPlayer Port ID State WeaponPos Players} 
+		case Players of nil then State
+		[] H|T then
+			if H.currentposition==WeaponPos then
+				{ChangePlayerStatus State.playerStatus H.id playerstate(hp:H.hp-1)}
+			else
+				{TryShootPlayer Port ID State WeaponPos T} 
+			end
+		end
+	end
+
 	% Previens tous les joueurs avec le message MESSAGE
 	proc {SayToAllPlayers PlayersPorts Message}
 		case PlayersPorts of nil then skip
@@ -364,14 +386,18 @@ in
 					{SayToAllPlayers PlayersPorts sayMinePlaced(ID Weapon)}
 					%Display de mine
 					{Send WindowPort putMine(Weapon)}
-					TempState={Adjoin State state(playersStatus: {ChangePlayerStatus State.playersStatus ID playerstate(chargemine:0)})}
 					% On merge 2 records pour ajouter la nouvelle mine
-					{Adjoin TempState state(mines: {List.append State.mines [Weapon]})}
+					{Adjoin {Adjoin State state(playersStatus: {ChangePlayerStatus State.playersStatus ID playerstate(chargemine:0)})} state(mines: {List.append State.mines [Weapon]})}
 				else
 					State
 				end
 			elseif ({Record.label Weapon}==gun andthen ({GetPlayerState State.playersStatus ID}.chargegun == Input.gunCharge)) then
-				State
+				if {ValidHit {GetPlayerState State.playersStatus ID}.currentposition Weapon.pos} then
+					{SayToAllPlayers PlayersPorts sayShoot(ID Weapon.pos)}
+					{TryShootPlayer Port ID {CheckMines Port ID State Weapon.pos State.mines} Weapon.pos State.playerStatus} 
+				else
+					State
+				end
 			else
 				State
 			end

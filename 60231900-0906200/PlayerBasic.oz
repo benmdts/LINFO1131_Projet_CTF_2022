@@ -58,6 +58,7 @@ in
 					mineReloads:0
 					gunReloads:0
 					startPosition:{List.nth Input.spawnPoints ID}
+					mines:nil
 					% TODO You can add more elements if you need it
 				)
 			}
@@ -181,7 +182,7 @@ in
 		if (ID == State.id) then
 			{Adjoin State state(mineReloads:0)}
 		else
-			{Adjoin State state(gunReloads:0)}
+			State
 		end
 	end
 
