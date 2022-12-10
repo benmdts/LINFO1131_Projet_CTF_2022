@@ -296,7 +296,20 @@ in
 		case Players of nil then State
 		[] H|T then
 			if H.currentposition==WeaponPos then
-				{ChangePlayerStatus State.playersStatus H.id playerstate(hp:H.hp-1)}
+				{Send WindowPort lifeUpdate(H.id H.hp-1)}
+				if(H.hp-1=<0) then 
+					{Send WindowPort removeSoldier(H.id)}
+					{SayToAllPlayers PlayersPorts sayDeath(H.id)}
+					%Si le joueur a le drapeau alors on dit a tout le monde que le drapeau est drop car il est mort
+					if(H.hasflag\=nil) then 
+						{SayToAllPlayers PlayersPorts sayFlagDropped(H.id H.hasflag)}
+					end
+					% On met hasflag: nil dans tous les cas c'est plus facile
+					{Adjoin State state(playersStatus:{ChangePlayerStatus State.playersStatus H.id playerstate(hp:H.hp-1 hasflag:nil)})}
+					% SKIP LE RESTE DE SON TOUR. Je vois pas comment faire pour l'instant 
+				else
+					{Adjoin State state(playersStatus:{ChangePlayerStatus State.playersStatus H.id playerstate(hp:H.hp-1)})}
+				end
 			else
 				{TryShootPlayer Port ID State WeaponPos T} 
 			end
