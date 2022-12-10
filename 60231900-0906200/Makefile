@@ -34,8 +34,10 @@ main :
 clean-main : 
 	rm Main.ozf
 player : 
-	rm PlayerBasic.ozf
-	$(OZC) -c PlayerBasic.ozs
+	rm Player1.ozf
+	rm Player2.ozf
+	$(OZC) -c ${PLAYER1} -o "Player1.ozf"
+	$(OZC) -c ${PLAYER2} -o "Player2.ozf"
 
 reset-main: clean-main main run
 

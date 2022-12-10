@@ -107,9 +107,29 @@ in
 		CurrentPosition 
 	in 
 		ID = State.id
-		CurrentPosition = State.position
-		case CurrentPosition 
-			of pt(x:X y:Y) then 
+		case State.id 
+		of id(name:_ id:_ color:Color) then 
+			if Color == blue then 
+			CurrentPosition = State.position
+			case CurrentPosition 
+				of pt(x:X y:Y) then 
+					if X == 3 then 
+						if(Y > 2) then 
+						Position = pt(x:CurrentPosition.x y:CurrentPosition.y-1)
+						else
+						Position = pt(x:CurrentPosition.x-1 y:CurrentPosition.y-1)
+						end 
+					else if X > 3 then 
+						Position = pt(x:CurrentPosition.x - 1 y:CurrentPosition.y)
+					else 
+						Position = pt(x:CurrentPosition.x y:CurrentPosition.y)
+					end 
+				end 
+			end 
+			State
+			else
+				case CurrentPosition 
+				of pt(x:X y:Y) then 
 				if X < 7 then 
 					Position = pt(x:CurrentPosition.x + 1 y:CurrentPosition.y)
 				else if X > 7 then 
@@ -117,9 +137,11 @@ in
 				else 
 					Position = pt(x:CurrentPosition.x y:CurrentPosition.y)
 				end 
+				end 
+				end 
+				State
 			end 
-		end 
-		State
+		end  
 	end
 
 	% À modifier pas complet mais je sais pas encore quoi faire quand ce n'est pas le même id qui a bougé
@@ -205,13 +227,17 @@ in
 
 	fun {TakeFlag State ?ID ?Flag}
 		ID = State.id
-		Flag = null
+		Flag = flag(pos:pt(x:3 y:4) color:red)
 		State
 	end
 			
 	fun {DropFlag State ?ID ?Flag}
 		ID = State.id
+		if State.position == pt(x:3 y:3) then 
+			Flag = flag(pos: State.position color: red) 
+		else
 		Flag = null
+		end 
 		State
 	end
 
