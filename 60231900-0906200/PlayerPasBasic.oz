@@ -195,7 +195,8 @@ in
 	fun {FireItem State ?ID ?Kind}
 		ID = State.id
 		if (State.gunReloads==1) then 
-			Kind =gun(pos:pt(x:State.position.x+1 y:State.position.y+1))
+			Kind =gun(pos:pt(x:State.position.x y:State.position.y+1))
+			%Kind =mine(pos:pt(x:State.position.x y:State.position.y))
 		else
 			Kind=null()
 		end

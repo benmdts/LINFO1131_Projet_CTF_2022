@@ -96,14 +96,14 @@ in
 		{Send StatePort move(PlayerID NewPosition Port HasMoved)}
 		{Wait HasMoved}
 
+
         {Send Port chargeItem(ID Kind)}
 		{Wait Kind}
-		{Send StatePort playerCharge(ID Kind Port)}% Est-ce qu'on vérifie s'il est pas au max ? 
+		{Send StatePort playerCharge(ID Kind Port)}% Est-ce qu'on vérifie s'il est pas au max ?
 
-		
 		{Send Port fireItem(ID Fire)}
 		{Wait Fire}
-		{Send StatePort useWeapon(ID Fire Port)}% Est-ce qu'on vérifie s'il est pas au max ? 
+		{Send StatePort useWeapon(ID Fire Port)}% Est-ce qu'on vérifie s'il est pas au max ?
 
 		{Send StatePort playerCanTakeFlag(ID TakeFlag)}
 		{Wait TakeFlag}
@@ -437,7 +437,7 @@ in
 		thread
 			{TreatStream
 			 	Stream
-				state(mines:nil flags:Input.flags playersStatus: PlayersStatus)
+				state(mines:[mine(pos:pt(x:7 y:7))] flags:Input.flags playersStatus: PlayersStatus)
 			}
 		end
 		Port
@@ -503,14 +503,15 @@ in
 					%Display de mine
 					{Send WindowPort putMine(Weapon)}
 					% On merge 2 records pour ajouter la nouvelle mine
-					{Adjoin {Adjoin State state(playersStatus: {ChangePlayerStatus State.playersStatus ID playerstate(chargemine:0)})} state(mines: {List.append State.mines [Weapon]})}
+					{Adjoin State state(playersStatus: {ChangePlayerStatus State.playersStatus ID playerstate(chargemine:0)} mines: {List.append State.mines [Weapon]})}
 				else
 					State
 				end
 			elseif ({Record.label Weapon}==gun andthen ({GetPlayerState State.playersStatus ID}.chargegun == Input.gunCharge)) then
 				if {ValidHit {GetPlayerState State.playersStatus ID}.currentposition Weapon.pos} then
 					{SayToAllPlayers PlayersPorts sayShoot(ID Weapon.pos)}
-					{TryShootPlayer Port ID {CheckMines Port ID State Weapon.pos State.mines} Weapon.pos State.playersStatus} 
+					TempState={TryShootPlayer Port ID {CheckMines Port ID State Weapon.pos State.mines} Weapon.pos State.playersStatus}
+					{Adjoin TempState state(playersStatus:{ChangePlayerStatus TempState.playersStatus ID playerstate(chargegun:0)})}
 				else
 					State
 				end
@@ -547,12 +548,12 @@ in
 		% Open window
 		{Send WindowPort buildWindow}
 		{System.show buildWindow}
-		{Delay 3000}
 
         % Create port for players
 		PlayersPorts = {DoListPlayer Input.players Input.colors 1} 
 		PlayersStatus = {CreatePlayerStatus PlayersPorts}
 		GameStatePort = {StartGame PlayersStatus}
+		{Delay 5000}
 		
 		{InitThreadForAll PlayersPorts PlayersStatus GameStatePort}
 
