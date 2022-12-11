@@ -38,6 +38,12 @@ define
 	FlagTaken
 	SamePositionAsFlag
 	ChangeFlags
+	Time
+	CheckFreeTile
+	SpawnFood 
+		CheckFreeTileHelper 
+		RemoveFood
+		CheckIfFoodOnPosition
 
 	
 
@@ -59,7 +65,61 @@ in
 	end
 
 	SimulatedThinking = proc{$} {Delay ({OS.rand} mod (Input.thinkMax - Input.thinkMin) + Input.thinkMin)} end
+
 	%ICI ID est un record
+	proc {SpawnFood StatePort}
+		ListFreeTiles
+		Pos
+	in 
+		{Delay ({OS.rand} mod (Input.foodDelayMax - Input.foodDelayMin) + Input.foodDelayMin)}
+		ListFreeTiles = {CheckFreeTile Input.map 1}
+		Pos = {List.nth ListFreeTiles ({OS.rand} mod ({Length ListFreeTiles} - 1 ) + 1 )}
+		{Send StatePort spawnfood(food(pos:Pos))}
+		{SpawnFood StatePort}
+	end 
+	fun {CheckIfFoodOnPosition Food NewPosition}
+		%{System.show 'CheckIfFoodOnPosition\n\n'}
+		%{System.show 'NewPosition'|NewPosition|nil}
+		case Food of nil then false
+		[] food(pos:Pos)|T then 
+			if Pos == NewPosition then 
+				%{System.show '---TRUE---\n\n'}true
+			else
+				{CheckIfFoodOnPosition T NewPosition}
+			end
+		end
+	end 
+	fun {RemoveFood Food Position}
+		case Food of nil then nil
+		[] food(pos:Pos)|T then 
+			if Pos == Position then 
+				T
+			else
+				food(pos:Pos)|{RemoveFood T Position}
+			end
+		end
+	end 
+
+	fun {CheckFreeTile Map RowNum}
+		ResultRow in 
+		case Map of nil then nil
+		[] Row|T then
+			ResultRow = {CheckFreeTileHelper Row RowNum 1}
+			{Append ResultRow {CheckFreeTile Map.2 RowNum+1}}
+		end 
+	end
+
+	fun {CheckFreeTileHelper List Row Column} 
+		case List of nil then nil
+			[] Tile|NextTile then 
+				if(Tile == 0) then 
+					pt(x:Row y: Column)|{CheckFreeTileHelper NextTile Row Column+1}
+				else 
+					{CheckFreeTileHelper NextTile Row Column+1}
+				end
+			end 
+	end 
+
 	proc {Main Port ID StatePort}
 		Result 
 		NewStateMove
@@ -137,25 +197,42 @@ in
 		{Delay 500} % Pour afficher plus lentement, à enlever après
 		{Main Port ID StatePort}
 	end
+	
 
 	fun {MovePlayer Port ID State NewPosition}
-		PlayerState in 
+		PlayerState Food NewStateFood NewHP NewPlayerState in 
 		PlayerState = {GetPlayerState State.playersStatus ID}
 		if {CheckValidMove NewPosition State ID PlayerState} then 
 			% Bouge le player
 			{Send WindowPort moveSoldier(ID NewPosition)}
 			% Dis à tout le monde que le player a bougé 
 			{SayToAllPlayers PlayersPorts sayMoved(ID NewPosition)}
+			Food = {CheckIfFoodOnPosition State.food NewPosition}
+			if Food then 
+				{SayToAllPlayers PlayersPorts sayFoodEaten(ID food(pos:NewPosition))}
+				{Send WindowPort removeFood(food(pos:NewPosition))}
+				NewHP = {GetPlayerState State.playersStatus ID}.hp
+				%{System.show 'Food'|Food|'NewPosition :'|NewPosition|'Hp'|NewHP|nil}
+				{Send WindowPort lifeUpdate(ID NewHP+1)}
+				NewStateFood = {Adjoin State state(food:{RemoveFood State.food NewPosition} playersStatus: {ChangePlayerStatus State.playersStatus ID playerstate(hp:NewHP+1)})}
+					NewPlayerState = {GetPlayerState NewStateFood.playersStatus ID}
+				%{System.show 'NewStateFood'|NewStateFood|'NewHp :'|NewPlayerState.hp|nil}
+			else 
+				NewStateFood = State
+				NewPlayerState = PlayerState
+			end
+			%{System.show 'NewPlayerState'|NewPlayerState|nil}
 			% On merge 2 records pour ajouter la nouvelle position {ChangePlayerStatus} retourne une nouvelle liste avec la nouvelle position
-			if PlayerState.hasflag\=nil then 
+			if NewPlayerState.hasflag\=nil then 
 				NewFlags NewPlayerStatus in 
-				{Send WindowPort removeFlag(PlayerState.hasflag)}
-				{Send WindowPort putFlag({Adjoin PlayerState.hasflag flag(pos: NewPosition)})}
-				NewFlags = {ChangeFlags State.flags PlayerState.hasflag flag(pos:NewPosition)}
-				NewPlayerStatus = {ChangePlayerStatus State.playersStatus ID playerstate(currentposition:NewPosition hasflag:{Adjoin PlayerState.hasflag flag(pos: NewPosition)})}
-				{Adjoin State state(flags:NewFlags playersStatus: NewPlayerStatus)}
-				else 
-				{Adjoin State state(playersStatus: {ChangePlayerStatus State.playersStatus ID playerstate(currentposition:NewPosition)})}
+				%{System.show 'NewPlayerState.hasflag'|NewPlayerState.hasflag|'NewPosition :'|NewPosition|nil}
+				{Send WindowPort removeFlag(NewPlayerState.hasflag)}
+				{Send WindowPort putFlag({Adjoin NewPlayerState.hasflag flag(pos: NewPosition)})}
+				NewFlags = {ChangeFlags NewStateFood.flags NewPlayerState.hasflag flag(pos:NewPosition)}
+				NewPlayerStatus = {ChangePlayerStatus NewStateFood.playersStatus ID playerstate(currentposition:NewPosition hasflag:{Adjoin NewPlayerState.hasflag flag(pos: NewPosition)})}
+				{Adjoin NewStateFood state(flags:NewFlags playersStatus: NewPlayerStatus)}
+			else 
+				{Adjoin NewStateFood state(playersStatus: {ChangePlayerStatus NewStateFood.playersStatus ID playerstate(currentposition:NewPosition)})}
 				end 
 			else 
 			State
@@ -416,6 +493,7 @@ in
 		of nil then
 			{Send WindowPort initSoldier(null pt(x:0 y:0))}
 			{DrawFlags Input.flags WindowPort}
+			thread {SpawnFood GameStatePort} end
 		[] player(_ Port)|Next then ID Position in
 			% Correct ? le joueur dit oui il arrive ? Faut vérifier si on est bien au point de spawn non ?
 			{Send Port initPosition(ID Position)}
@@ -437,7 +515,7 @@ in
 		thread
 			{TreatStream
 			 	Stream
-				state(mines:nil flags:Input.flags playersStatus: PlayersStatus)
+				state(mines:nil flags:Input.flags playersStatus: PlayersStatus food: [food(pos:pt(x:7 y:10))])
 			}
 		end
 		Port
@@ -523,7 +601,6 @@ in
 			Flag = (PlayerState.hasflag == nil) andthen {SamePositionAsFlag State.flags ID.color PlayerState.currentposition} andthen {Not {FlagTaken State.playersStatus ID ID.color} }
 			State
 		[]playerTakeFlag(ID Flag Port) then 
-			{System.show '\n\n\n-----------------\n\n\n'}
 			{SayToAllPlayers PlayersPorts sayFlagTaken(ID Flag)}
 			{Adjoin State state(playersStatus: {ChangePlayerStatus State.playersStatus ID playerstate(hasflag:Flag)})}
 		[]playerHasFlag(ID PlayerHasFlag) then 
@@ -536,6 +613,10 @@ in
 		[] playerDroppedFlag(ID) then 
 			{SayToAllPlayers PlayersPorts sayFlagDropped(ID {GetPlayerState State.playersStatus ID}.hasflag)}
 			{Adjoin State state(playersStatus: {ChangePlayerStatus State.playersStatus ID playerstate(hasflag:nil)})}
+		[] spawnfood(Food) then 
+			{Send WindowPort putFood(Food)}
+			{SayToAllPlayers PlayersPorts sayFoodAppeared(Food)}
+			{Adjoin State state(food:{Append State.food [Food]})}
 		end 
     end
 

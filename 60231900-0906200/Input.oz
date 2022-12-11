@@ -79,8 +79,8 @@ in
 
 %%%% Food apparition parameters %%%%
 
-    FoodDelayMin = 25000
-    FoodDelayMax = 30000
+    FoodDelayMin = 1000
+    FoodDelayMax = 2000
 
 %%%% Charges
     GunCharge = 1

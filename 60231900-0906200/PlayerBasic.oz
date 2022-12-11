@@ -227,7 +227,7 @@ in
 
 	fun {TakeFlag State ?ID ?Flag}
 		ID = State.id
-		Flag = flag(pos:pt(x:3 y:4) color:red)
+		Flag = flag(pos:State.position color:red)
 		State
 	end
 			
