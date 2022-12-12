@@ -39,7 +39,6 @@ define
 	SpawnFood 
 	CheckFreeTileHelper 
 	RemoveFood
-	CheckIfFoodOnPosition
 
 	
 
@@ -72,19 +71,6 @@ in
 		Pos = {List.nth ListFreeTiles ({OS.rand} mod ({Length ListFreeTiles} - 1 ) + 1 )}
 		{Send StatePort spawnfood(food(pos:Pos))}
 		{SpawnFood StatePort}
-	end 
-	fun {CheckIfFoodOnPosition Food NewPosition}
-		%{System.show 'CheckIfFoodOnPosition\n\n'}
-		%{System.show 'NewPosition'|NewPosition|nil}
-		case Food of nil then false
-		[] food(pos:Pos)|T then 
-			if Pos == NewPosition then 
-				%{System.show '---TRUE---\n\n'}
-				true
-			else
-				{CheckIfFoodOnPosition T NewPosition}
-			end
-		end
 	end 
 	fun {RemoveFood Food Position}
 		case Food of nil then nil
@@ -139,14 +125,14 @@ in
 		
 		%Ask where the player want to go and move if its valid, if he walked on a mine then BOOM
 		local 
-			IsDead 
+			HasMoved
 			NewPosition
 			PlayerID
 		in 
 			{Send Port move(PlayerID NewPosition)}
 			{Wait NewPosition}{Wait PlayerID}
-			{Send StatePort move(PlayerID NewPosition IsDead)}
-			{Wait IsDead}
+			{Send StatePort move(PlayerID NewPosition HasMoved)}
+			{Wait HasMoved}
 		end
 
 		%Ask what weapon does the player want to charge
@@ -200,7 +186,7 @@ in
 			{Send WindowPort moveSoldier(ID NewPosition)}
 			% Dis à tout le monde que le player a bougé 
 			{SayToAllPlayers PlayersPorts sayMoved(ID NewPosition)}
-			Food = {CheckIfFoodOnPosition State.food NewPosition}
+			Food = {List.member food(pos:NewPosition) State.food}
 			if Food then 
 				{SayToAllPlayers PlayersPorts sayFoodEaten(ID food(pos:NewPosition))}
 				{Send WindowPort removeFood(food(pos:NewPosition))}
