@@ -268,7 +268,7 @@ in
 	fun {CheckNotMerging NewPosition State ID}
 		case State of nil then true
 		[] H|T then 
-			if H.id\=ID andthen NewPosition==H.currentposition then
+			if H.id\=ID andthen NewPosition==H.currentposition andthen H.hp>0 then
 				false
 			else
 				{CheckNotMerging NewPosition T ID}
