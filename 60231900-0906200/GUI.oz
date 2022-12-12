@@ -126,7 +126,6 @@ in
 	end
 
 	fun{MoveSoldier Position}
-		{System.show moveSoldier(Position)}
 		fun{$ Grid State}
 			ID HandleScore Handle Mine X Y Flag Food
 		in
