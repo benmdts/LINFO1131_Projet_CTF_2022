@@ -4,6 +4,7 @@ Commentaires Benoît To Arthur :
 2. Sauter le tour si mort
 3. Mine qui se déclenche pas mais se déclenche quand quelqu'un arrive.
 4. Thinking time
+5. Ou le mettre quand il est mort ? Que fairt de son cadavre ? Comment cacher un cadavre ? Comment assassiner son voisin ???
    Commentaires Arthur To Benoît :
 
 ---
