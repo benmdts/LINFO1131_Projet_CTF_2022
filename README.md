@@ -1,9 +1,9 @@
 Commentaires Benoît To Arthur :
 
 1. (Redraw ou pas mettre si superposition) -- pas encore fait
-2. Sauter le tour si mort -- En cours
    Commentaires Arthur To Benoît :
 1. Si tu vois des joueurs qui tankent les mines c'est pas un bug, ils ont juste mangé un food avant
+2. Normalement ca saute le tour :)
 ---
 
 Game controller (Main oz) :

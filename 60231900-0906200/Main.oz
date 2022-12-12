@@ -39,6 +39,7 @@ define
 	SpawnFood 
 	CheckFreeTileHelper 
 	RemoveFood
+	CheckDead
 
 	
 
@@ -124,43 +125,51 @@ in
 		{SimulatedThinking} % Il réfléchis
 		
 		%Ask where the player want to go and move if its valid, if he walked on a mine then BOOM
-		local 
-			HasMoved
+		local
 			NewPosition
 			PlayerID
+			IsDead
 		in 
 			{Send Port move(PlayerID NewPosition)}
 			{Wait NewPosition}{Wait PlayerID}
-			{Send StatePort move(PlayerID NewPosition HasMoved)}
-			{Wait HasMoved}
+			{Send StatePort move(PlayerID NewPosition IsDead)}
+			if IsDead then {Main Port ID StatePort} end
 		end
 
 		%Ask what weapon does the player want to charge
 		local 
 			Kind
+			IsDead
 		in
 			{Send Port chargeItem(ID Kind)}
 			{Wait Kind}
-			{Send StatePort playerCharge(ID Kind Port)}% Est-ce qu'on vérifie s'il est pas au max ?
+			{Send StatePort playerCharge(ID Kind Port IsDead)}% Est-ce qu'on vérifie s'il est pas au max ?
+			if IsDead then {Main Port ID StatePort} end
 		end
 
 		%Ask what to shoot
 		local 
 			Fire
+			IsDead
 		in
 			{Send Port fireItem(ID Fire)}
 			{Wait Fire}
-			{Send StatePort useWeapon(ID Fire)}% Est-ce qu'on vérifie s'il est pas au max ?
+			{Send StatePort useWeapon(ID Fire IsDead)}% Est-ce qu'on vérifie s'il est pas au max ?
+			if IsDead then {Main Port ID StatePort} end
 		end
 
 		%Ask if wether or not player want to take the flag
 		local
 			Flag
+			IsDead
 		in
 			{Send Port takeFlag(ID Flag)}
 			if Flag \=null then 
-				{Send StatePort playerTakeFlag(ID Flag)}
+				{Send StatePort playerTakeFlag(ID Flag IsDead)}
+			else
+				{Send StatePort isAlive(ID IsDead)}
 			end
+			if IsDead then {Main Port ID StatePort} end
 		end
 
 		%Ask if wether or not player want to drop flag
@@ -374,6 +383,12 @@ in
 		end
 	end
 
+	%Regarde si le player ID est mort 
+	fun {CheckDead State ID}
+		{GetPlayerState State.playersStatus ID}.hp =< 0 
+	end
+
+
 	% Previens tous les joueurs avec le message MESSAGE
 	proc {SayToAllPlayers PlayersPorts Message}
 		case PlayersPorts of nil then skip
@@ -481,7 +496,7 @@ in
 		[] changeID(ID) then 
 			{Adjoin State state(playersStatus: {ChangePlayerStatus State.playersStatus ID.id playerstate(id: ID)})}
 		[] isAlive(ID ?Dead) then
-			Dead = {GetPlayerState State.playersStatus ID}.hp =< 0 
+			Dead = {CheckDead State ID}
 			State
 		% On donne l'id et le port du joueur qui doit être respawn 
 		[] respawn(ID Port) then 
@@ -489,80 +504,110 @@ in
             {Send Port respawn()}
 			% Prévenir les autres
 			{Adjoin State state(playersStatus: {ChangePlayerStatus State.playersStatus ID playerstate(currentposition: {List.nth Input.spawnPoints ID.id} hp: Input.startHealth)} )}
-		[] move(ID Position ?HasMoved) then
+		[] move(ID Position ?Dead) then
 			%I est un record
 			% On vérifie s'il a marché sur une mine juste après
 			MovePlayerState 
 			MineState
 			Replaced
 		in 
-			MovePlayerState={MovePlayer ID State Position Replaced}
-			if Replaced then
-				MineState={CheckMines ID MovePlayerState Position State.mines}
+			if {CheckDead State ID} then 
+				Dead=true 
+				State
 			else
-				MineState=MovePlayerState
+				MovePlayerState={MovePlayer ID State Position Replaced}
+				if Replaced then
+					MineState={CheckMines ID MovePlayerState Position State.mines}
+				else
+					MineState=MovePlayerState
+				end
+				Dead=false
+				MineState
 			end
-			HasMoved=true
-			MineState
-        [] playerCharge(ID Weapon Port) then
+        [] playerCharge(ID Weapon Port ?Dead) then
             ActualGunCharge ActualMineCharge 
 		in 
-			if (Weapon == mine) then 
-				ActualMineCharge = {GetPlayerState State.playersStatus ID}.chargemine
-                if ActualMineCharge < Input.mineCharge then 
-					{Send Port sayCharge(ID mine)}
-					{Adjoin State state(playersStatus: {ChangePlayerStatus State.playersStatus ID playerstate(chargemine:ActualMineCharge+1)} )}
+			if {CheckDead State ID} then 
+				Dead=true  
+				State
+			else
+				if (Weapon == mine) then 
+					ActualMineCharge = {GetPlayerState State.playersStatus ID}.chargemine
+					if ActualMineCharge < Input.mineCharge then 
+						{Send Port sayCharge(ID mine)}
+						Dead=false
+						{Adjoin State state(playersStatus: {ChangePlayerStatus State.playersStatus ID playerstate(chargemine:ActualMineCharge+1)} )}
+					else 
+						Dead=false
+						State
+					end
+				elseif (Weapon == gun) then 
+					ActualGunCharge = {GetPlayerState State.playersStatus ID}.chargegun
+					if ActualGunCharge < Input.gunCharge then 
+						{Send Port sayCharge(ID gun)}
+						Dead=false
+						{Adjoin State state(playersStatus: {ChangePlayerStatus State.playersStatus ID playerstate(chargegun:ActualGunCharge+1)})}
+					else 
+						Dead=false
+						State
+					end 
 				else 
+					Dead=false
 					State
 				end
-			elseif (Weapon == gun) then 
-				ActualGunCharge = {GetPlayerState State.playersStatus ID}.chargegun
-                if ActualGunCharge < Input.gunCharge then 
-					{Send Port sayCharge(ID gun)}
-					{Adjoin State state(playersStatus: {ChangePlayerStatus State.playersStatus ID playerstate(chargegun:ActualGunCharge+1)})}
-				else 
-					State
-                end 
-			else 
-				State
 			end
-		[] useWeapon(ID Weapon) then
+		[] useWeapon(ID Weapon ?Dead) then
 			TempState
 		in
-			%Type=mine & Assez de charge pour placer & Pas de mine la ou on veut poser & Pas sur le drapeau & La position souhaitée est en dessous du joueur 
-			if ({Record.label Weapon}==mine andthen ({GetPlayerState State.playersStatus ID}.chargemine == Input.mineCharge) andthen  {List.member Weapon State.mines}==false andthen {List.member {GetPlayerState State.playersStatus ID}.currentposition State.flags}==false andthen {GetPlayerState State.playersStatus ID}.currentposition == Weapon.pos) then 
-				%Dis a tous les joueurs qu'il a posé une mine
-				{SayToAllPlayers PlayersPorts sayMinePlaced(ID Weapon)}
-				%Display de mine
-				{Send WindowPort putMine(Weapon)}
-				% On merge 2 records pour ajouter la nouvelle mine
-				{Adjoin State state(playersStatus: {ChangePlayerStatus State.playersStatus ID playerstate(chargemine:0)} mines: {List.append State.mines [Weapon]})}
-			%Type=mine & Assez de charge pour tirer & Tire Valide
-			elseif ({Record.label Weapon}==gun andthen ({GetPlayerState State.playersStatus ID}.chargegun == Input.gunCharge) andthen {ValidHit {GetPlayerState State.playersStatus ID}.currentposition Weapon.pos}) then
-				{SayToAllPlayers PlayersPorts sayShoot(ID Weapon.pos)}
-				TempState={TryShootPlayer ID {CheckMines ID State Weapon.pos State.mines} Weapon.pos State.playersStatus}
-				{Adjoin TempState state(playersStatus:{ChangePlayerStatus TempState.playersStatus ID playerstate(chargegun:0)})}
-			else
+			if {CheckDead State ID} then 
+				Dead=true  
 				State
+			else
+				%Type=mine & Assez de charge pour placer & Pas de mine la ou on veut poser & Pas sur le drapeau & La position souhaitée est en dessous du joueur 
+				if ({Record.label Weapon}==mine andthen ({GetPlayerState State.playersStatus ID}.chargemine == Input.mineCharge) andthen  {List.member Weapon State.mines}==false andthen {List.member {GetPlayerState State.playersStatus ID}.currentposition State.flags}==false andthen {GetPlayerState State.playersStatus ID}.currentposition == Weapon.pos) then 
+					%Dis a tous les joueurs qu'il a posé une mine
+					{SayToAllPlayers PlayersPorts sayMinePlaced(ID Weapon)}
+					%Display de mine
+					{Send WindowPort putMine(Weapon)}
+					Dead=false
+					% On merge 2 records pour ajouter la nouvelle mine
+					{Adjoin State state(playersStatus: {ChangePlayerStatus State.playersStatus ID playerstate(chargemine:0)} mines: {List.append State.mines [Weapon]})}
+				%Type=mine & Assez de charge pour tirer & Tire Valide
+				elseif ({Record.label Weapon}==gun andthen ({GetPlayerState State.playersStatus ID}.chargegun == Input.gunCharge) andthen {ValidHit {GetPlayerState State.playersStatus ID}.currentposition Weapon.pos}) then
+					{SayToAllPlayers PlayersPorts sayShoot(ID Weapon.pos)}
+					TempState={TryShootPlayer ID {CheckMines ID State Weapon.pos State.mines} Weapon.pos State.playersStatus}
+					Dead=false
+					{Adjoin TempState state(playersStatus:{ChangePlayerStatus TempState.playersStatus ID playerstate(chargegun:0)})}
+				else
+					Dead=false
+					State
+				end
 			end
-		[]playerTakeFlag(ID Flag) then 
+		[]playerTakeFlag(ID Flag ?Dead) then 
 			PlayerState
 		in
-			PlayerState={GetPlayerState State.playersStatus ID} 
-			if ((PlayerState.hasflag == nil) andthen (PlayerState.currentposition==Flag.pos) andthen (PlayerState.id.color\=Flag.color) andthen {List.member Flag State.flags}) then
-				{SayToAllPlayers PlayersPorts sayFlagTaken(ID Flag)}
-				{Adjoin State state(playersStatus: {ChangePlayerStatus State.playersStatus ID playerstate(hasflag:Flag)})}
-			else
+			if {CheckDead State ID} then
+				Dead=true  
 				State
+			else
+				PlayerState={GetPlayerState State.playersStatus ID} 
+				if ((PlayerState.hasflag == nil) andthen (PlayerState.currentposition==Flag.pos) andthen (PlayerState.id.color\=Flag.color) andthen {List.member Flag State.flags}) then
+					{SayToAllPlayers PlayersPorts sayFlagTaken(ID Flag)}
+					Dead=false
+					{Adjoin State state(playersStatus: {ChangePlayerStatus State.playersStatus ID playerstate(hasflag:Flag)})}
+				else
+					Dead=false
+					State
+				end
 			end
-		[] playerDropFlag(ID) then 
+		[] playerDropFlag(ID) then
 			if {GetPlayerState State.playersStatus ID}.hasflag \= nil then 
 				{SayToAllPlayers PlayersPorts sayFlagDropped(ID {GetPlayerState State.playersStatus ID}.hasflag)}
 				{Adjoin State state(playersStatus: {ChangePlayerStatus State.playersStatus ID playerstate(hasflag:nil)})}
 			else
 				State
 			end
-		[] spawnfood(Food) then 
+		[] spawnfood(Food) then
 			{Send WindowPort putFood(Food)}
 			{SayToAllPlayers PlayersPorts sayFoodAppeared(Food)}
 			{Adjoin State state(food:{Append State.food [Food]})}
