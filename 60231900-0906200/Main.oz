@@ -83,7 +83,8 @@ in
 		case Food of nil then false
 		[] food(pos:Pos)|T then 
 			if Pos == NewPosition then 
-				%{System.show '---TRUE---\n\n'}true
+				%{System.show '---TRUE---\n\n'}
+				true
 			else
 				{CheckIfFoodOnPosition T NewPosition}
 			end
@@ -149,12 +150,14 @@ in
 			{Delay Input.respawnDelay}
 			{Send StatePort respawn(ID Port)}
 		end
-
+		
 		%PLAYERID aussi un record
 		{Send Port move(PlayerID NewPosition)}
 		{Wait NewPosition}{Wait PlayerID}
+		{System.show '2'}
 		{Send StatePort move(PlayerID NewPosition Port HasMoved)}
 		{Wait HasMoved}
+		{System.show '3'}
 
 
         {Send Port chargeItem(ID Kind)}
@@ -515,7 +518,7 @@ in
 		thread
 			{TreatStream
 			 	Stream
-				state(mines:[mine(pos:pt(x:7 y:7))] flags:Input.flags playersStatus: PlayersStatus)
+				state(mines:nil flags:Input.flags playersStatus:PlayersStatus food:nil)
 			}
 		end
 		Port
@@ -629,12 +632,12 @@ in
 		% Open window
 		{Send WindowPort buildWindow}
 		{System.show buildWindow}
-
+		{Delay 3000}
         % Create port for players
 		PlayersPorts = {DoListPlayer Input.players Input.colors 1} 
 		PlayersStatus = {CreatePlayerStatus PlayersPorts}
 		GameStatePort = {StartGame PlayersStatus}
-		{Delay 5000}
+		
 		
 		{InitThreadForAll PlayersPorts PlayersStatus GameStatePort}
 

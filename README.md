@@ -1,12 +1,10 @@
 Commentaires Benoît To Arthur :
 
-1. ~Ligne 176 de PlayerBasic, tu renvoies null() mais qu'est-ce que c'est ??? C normal tkt bb
-2. ~Ligne 268 du Main, {TryShootPlayer Port ID State WeaponPos Players} tu check pas si la personne est morte. Si elle est mort mets hasflag: nil comme j'ai fait pour la fonction CheckOtherPlayersNearMines ~Ligne246 du main  -- Normalement c'est fixé
-3. Les SayAll on devrait pas le faire dans le thread et non pas dans le PortObject. J'ai pas trop réfléchis à la question donc c'est peut-être archi con mais je préfère le noter.
-4. Que renvoie le joueur dans Flag s'il ne veut pas le prendre/drop ? Nil ? réponse ça prend null
-5. Spawn foods on fait spawn potentiellement sur une mine, un joueur, ou un autre food.
-
-Commentaires Arthur To Benoît :
+1. (Redraw ou pas mettre)
+2. Sauter le tour si mort
+3. Mine qui se déclenche pas mais se déclenche quand quelqu'un arrive.
+4. Thinking time
+   Commentaires Arthur To Benoît :
 
 ---
 

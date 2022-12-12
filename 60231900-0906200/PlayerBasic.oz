@@ -104,10 +104,6 @@ in
 	end
 
 	fun {Move State ?ID ?Position}
-		Position=State.position
-		ID = State.id
-		State
-		/* 
 		CurrentPosition 
 	in 
 		ID = State.id
@@ -132,7 +128,7 @@ in
 			end 
 			State
 			else
-				case State.position
+				case CurrentPosition 
 				of pt(x:X y:Y) then 
 				if X < 7 then 
 					Position = pt(x:CurrentPosition.x + 1 y:CurrentPosition.y)
@@ -145,8 +141,9 @@ in
 				end 
 				State
 			end 
-		end  */
+		end  
 	end
+
 
 	% À modifier pas complet mais je sais pas encore quoi faire quand ce n'est pas le même id qui a bougé
 	% idée : Enregistrer dans une liste, comme pour main avec playerStatus, ce qui permettra de bouger en fonction 
@@ -176,11 +173,14 @@ in
 
 	fun {ChargeItem State ?ID ?Kind} 
 		ID = State.id
+		Kind = mine
+		/* 
 		if (State.gunReloads==0)then
 			Kind = gun
 		else
 			Kind = mine
 		end
+		 */
 		State
 	end
 
@@ -196,8 +196,10 @@ in
 		ID = State.id
 		if (State.gunReloads==1) then 
 			Kind =gun(pos:pt(x:State.position.x+1 y:State.position.y+1))
-		else
-			Kind=null()
+		elseif (State.mineReloads==5) then
+			Kind=mine(pos:pt(x:State.position.x y:State.position.y))
+		else 
+			Kind = null
 		end
 		State
 	end
