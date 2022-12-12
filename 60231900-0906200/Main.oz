@@ -5,6 +5,7 @@ import
 	PlayerManager
 	System
 	OS
+	Application
 define
 	DoListPlayer
 	InitThreadForAll
@@ -602,8 +603,20 @@ in
 			end
 		[] playerDropFlag(ID) then
 			if {GetPlayerState State.playersStatus ID}.hasflag \= nil then 
-				{SayToAllPlayers PlayersPorts sayFlagDropped(ID {GetPlayerState State.playersStatus ID}.hasflag)}
-				{Adjoin State state(playersStatus: {ChangePlayerStatus State.playersStatus ID playerstate(hasflag:nil)})}
+				Player
+				Case
+			in
+				Player={GetPlayerState State.playersStatus ID}
+				Case={List.nth {List.nth Input.map Player.currentposition.x} Player.currentposition.y}
+				if Case\=0 andthen Player.id.color=={List.nth Input.colors Case} then
+					{System.show 'La team '|Player.id.color|' remporte la partie !'}
+					{Delay 3000}
+					{Application.exit 0}
+					State
+				else
+					{SayToAllPlayers PlayersPorts sayFlagDropped(ID Player.hasflag)}
+					{Adjoin State state(playersStatus: {ChangePlayerStatus State.playersStatus ID playerstate(hasflag:nil)})}
+				end
 			else
 				State
 			end
