@@ -37,6 +37,11 @@ define
 	TakeFlag
 	DropFlag
 	Respawn
+	CreatePlayerStatus
+	ChangePlayerStatus
+	GetPlayerState
+	RemoveFromList
+	ChangeFlags
 
 	% Helper functions
 	RandomInRange = fun {$ Min Max} Min+({OS.rand}mod(Max-Min+1)) end
@@ -52,23 +57,86 @@ in
 				state(
 					id:id(name:basic color:Color id:ID)
 					position:{List.nth Input.spawnPoints ID}
-					map:Input.map
 					hp:Input.startHealth
-					flag:null
+					flags:Input.flags
 					mineReloads:0
 					gunReloads:0
 					startPosition:{List.nth Input.spawnPoints ID}
 					mines:nil
-					% TODO You can add more elements if you need it
+					playersStatus : {CreatePlayerStatus 1 ID}
+					food: nil
+					hasflag : nil
+					teamColor : {List.nth Input.colors ID}
 				)
 			}
 		end
 		Port
 	end
+	%ICI ID est juste le chiffre
 
+	fun {CreatePlayerStatus Index PlayerIndex} 
+		if {Length Input.spawnPoints} ==Index-1 then nil
+		else  
+			if Index \= PlayerIndex then 
+			playerstate(
+                currentposition: {List.nth Input.spawnPoints Index}
+				hp : Input.startHealth
+				id : Index
+				hasflag : nil
+				startPosition: {List.nth Input.spawnPoints Index}
+				teamColor : {List.nth Input.colors Index}
+				)|{CreatePlayerStatus Index+1 PlayerIndex}
+			else 
+				{CreatePlayerStatus Index+1 PlayerIndex}
+			end
+		end 
+	end 
+
+	fun {ChangePlayerStatus PlayersList PlayerID NewValue}
+		case PlayersList of nil then nil
+		[] PlayerState|T then
+			if PlayerState.id == PlayerID then
+				{Adjoin PlayerState NewValue}|T
+			else 
+				PlayerState|{ChangePlayerStatus T PlayerID NewValue}
+			end
+		end
+	end
+
+	fun {GetPlayerState PlayersList PlayerID}
+		case PlayersList of nil then nil
+		[] PlayerState|T then 
+			if(PlayerState.id == PlayerID) then 
+				PlayerState
+			else 
+				{GetPlayerState T PlayerID}
+			end
+		end
+	end
+
+	fun {RemoveFromList List Position}
+		case List of nil then nil
+		[] H|T then 
+			if H.pos == Position then 
+				T
+			else 
+				H|{RemoveFromList T Position}
+			end
+		end 
+	end
+	fun {ChangeFlags FlagsList Color NewValue}
+		case FlagsList of nil then nil
+		[] FlagRecord|T then
+			if FlagRecord.color == Color then
+				{Adjoin FlagRecord NewValue}|T
+			else 
+				FlagRecord|{ChangeFlags T Color NewValue}
+			end
+		end
+	end
     proc{TreatStream Stream State}
         case Stream
-            of H|T then {TreatStream T {MatchHead H State}}
+            of H|T then{TreatStream T {MatchHead H State}}
         end
     end
 
@@ -150,9 +218,25 @@ in
 	fun {SayMoved State ID Position}
 		NewState in 
 		if ID == State.id then 
-			NewState = {Adjoin State state(position:Position)}
+			if State.position == nil then 
+				NewState = {Adjoin State state(position:Position hp:Input.startHealth)}
+			else
+				if(State.hasflag\=nil) then
+				NewState = {Adjoin State state(flag:{ChangeFlags State.flags State.teamColor flag(pos:Position)} position:Position)}
+				else
+					NewState = {Adjoin State state(position:Position)}
+				end 
+			end 
 		else
-			NewState = State
+			if {GetPlayerState State.playersStatus ID.id}.currentposition==nil then 
+				NewState = {Adjoin State state(playersStatus:{ChangePlayerStatus State.playersStatus ID.id playerstate(currentposition:Position hp:Input.startHealth)})} 
+			else 
+				if(State.hasflag\=nil) then
+				NewState = {Adjoin State state(flag:{ChangeFlags State.flags {GetPlayerState State.playersStatus ID.id}.teamColor flag(pos:Position)} playersStatus:{ChangePlayerStatus State.playersStatus ID.id playerstate(currentposition:Position)})}
+				else
+				NewState = {Adjoin State state(playersStatus:{ChangePlayerStatus State.playersStatus ID.id playerstate(currentposition:Position)})} 
+				end 
+			end
 		end
 		NewState
 
@@ -160,15 +244,22 @@ in
 
 	%Comme pour au dessus ici il faudrait changer la liste qu'on utiliserait pour stocker l'endroit des mines
 	fun {SayMineExplode State Mine}
-		State
+		{Adjoin State state(mines:{RemoveFromList State.mines Mine.pos})}
 	end
 
 	fun {SayFoodAppeared State Food}
-		State
+		{Adjoin State state(food:{Append State.food [Food]})}
 	end
 
 	fun {SayFoodEaten State ID Food}
-		State
+		NewPlayerState NewState in 
+		if ID == State.id then 
+			NewState = {Adjoin State state(food:{RemoveFromList State.food Food.pos} hp: State.hp+1)}
+		else
+		NewPlayerState = {ChangePlayerStatus State.playersStatus ID.id playerstate(hp: {GetPlayerState State.playersStatus ID.id}.hp+1)}
+		NewState = {Adjoin State state(food:{RemoveFromList State.food Food.pos} playersStatus: NewPlayerState)}
+		end
+		NewState
 	end
 
 	fun {ChargeItem State ?ID ?Kind} 
@@ -204,14 +295,16 @@ in
 		State
 	end
 
+	% Est-ce qu'on stocke plus que ça ou pas ? Par exemple que le joueur n'a plus de munitions pour les mines. Mais je vois pas d'utilité
 	fun {SayMinePlaced State ID Mine}
 		if (ID == State.id) then
-			{Adjoin State state(mineReloads:0)}
+			{Adjoin State state(mines: {Append State.mines [Mine]} mineReloads:0)}
 		else
-			State
+			{Adjoin State state(mines: {Append State.mines [Mine]})}
 		end
 	end
-
+	
+	% Même question que pour la fonction SayMinePlaced
 	fun {SayShoot State ID Position}
 		if (ID == State.id) then
 			{Adjoin State state(gunReloads:0)}
@@ -222,15 +315,19 @@ in
 
 	% À modifier ici le joueur modifie son état quand on lui dit qu'il est mort mais les autres ne font rien
 	fun {SayDeath State ID}
-		if ID == State then 
-			{Adjoin State state(position:State.startPosition hp:Input.startHealth)}
+		if ID == State.id then 
+			{Adjoin State state(position:nil hp:0 mineReloads:0 gunReloads:0)}
 		else
-			State
+			{Adjoin State state(playerStatus: {ChangePlayerStatus State.playersStatus ID.id playerstate(position:nil hp:0)})}
 		end 
 	end
 
 	fun {SayDamageTaken State ID Damage LifeLeft}
-		State
+		if ID == State.id then 
+			{Adjoin State state(hp:LifeLeft)}
+		else
+			{Adjoin State state(playerStatus: {ChangePlayerStatus State.playersStatus ID.id playerstate(hp:LifeLeft)})}
+		end 
     end
 
 	fun {TakeFlag State ?ID ?Flag}
@@ -250,11 +347,19 @@ in
 	end
 
 	fun {SayFlagTaken State ID Flag}
-		State
+		if ID == State.id then 
+			{Adjoin State state(hasflag:Flag)}
+		else
+			{Adjoin State state(playerStatus: {ChangePlayerStatus State.playersStatus ID.id playerstate(hasflag:Flag)})}
+		end 
 	end
 
 	fun {SayFlagDropped State ID Flag}
-		State
+		if ID == State.id then 
+			{Adjoin State state(hasflag:nil)}
+		else
+			{Adjoin State state(playerStatus: {ChangePlayerStatus State.playersStatus ID.id playerstate(hasflag:nil)})}
+		end 
 	end
 	fun {Respawn State}
 		{Adjoin State state(hp:Input.startHealth position: State.startPosition)}
