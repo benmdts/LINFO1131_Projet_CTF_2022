@@ -563,11 +563,11 @@ in
 			TempState
 		in
 			if {CheckDead State ID} then 
-				Dead=true 
+				Dead=true  
 				State
 			else
 				%Type=mine & Assez de charge pour placer & Pas de mine la ou on veut poser & Pas sur le drapeau & La position souhaitée est en dessous du joueur 
-				if ({Record.label Weapon}==mine andthen {GetPlayerState State.playersStatus ID}.chargemine == Input.mineCharge andthen  {List.member Weapon State.mines}==false andthen {GetPlayerState State.playersStatus ID}.currentposition == Weapon.pos) then 
+				if ({Record.label Weapon}==mine andthen ({GetPlayerState State.playersStatus ID}.chargemine == Input.mineCharge) andthen  {List.member Weapon State.mines}==false andthen {List.member {GetPlayerState State.playersStatus ID}.currentposition State.flags}==false andthen {GetPlayerState State.playersStatus ID}.currentposition == Weapon.pos) then 
 					%Dis a tous les joueurs qu'il a posé une mine
 					{SayToAllPlayers PlayersPorts sayMinePlaced(ID Weapon)}
 					%Display de mine

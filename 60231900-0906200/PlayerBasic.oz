@@ -52,6 +52,8 @@ define
 	CreateMatrix
 	CreateRow
 	GetEnnemyFlag
+	Distance
+	InManhattan
 	
 
 	% Helper functions
@@ -310,7 +312,11 @@ end
 
 	fun {Move State ?ID ?Position}
 		ID = State.id
-		Position = {List.nth State.path 1}
+		if {Length State.path} >0 then 
+			Position = {List.nth State.path 1}
+		else 
+			Position = State.position
+		end
 		State
 	end
 
@@ -371,17 +377,10 @@ end
 		ID = State.id
 		if (State.gunReloads\=1)then
 			Kind = gun
-<<<<<<< HEAD
 		elseif (State.mineReloads\=5) then 
 			Kind = mine
 		else
 			Kind = null
-=======
-		elseif (State.mineReloads\=5)
-			Kind = mine
-		else
-			null
->>>>>>> 9a54f485764387434fa33c5b7bf69ce5af847608
 		end
 		State
 	end
@@ -396,8 +395,6 @@ end
 
 	fun {FireItem State ?ID ?Kind}
 		ID = State.id
-		Kind = null
-		/* 
 		if (State.gunReloads==1) then 
 			Kind =gun(pos:pt(x:State.position.x+1 y:State.position.y+1))
 		elseif (State.mineReloads==5) then
@@ -405,7 +402,6 @@ end
 		else 
 			Kind = null
 		end
-		*/
 		State
 	end
 
@@ -460,12 +456,16 @@ end
 		Team Tile in 
 		ID = State.id
 		Team=ID.id mod 2
-		Tile={List.nth {List.nth Input.map State.position.x} State.position.y}-1
-		if (Tile==Team) then 
-			Flag = flag(pos: State.position color: {GetEnnemyColor ID}) 
+		Tile={List.nth {List.nth Input.map State.position.x} State.position.y}
+		if State.hasflag \=nil then 
+		if (Team == 1 andthen Tile ==1) orelse (Team == 0 andthen Tile ==2) then 
+			Flag = flag(pos: State.position color: {GetEnnemyColor ID.id})
 		else
-		Flag = null
-		end 
+			Flag = null
+		end
+	else 
+		Flag = null 
+		end
 		State
 	end
 
@@ -474,7 +474,7 @@ end
 			{Adjoin State state(hasflag:Flag path:{ShortestPath Input.map State.position State.startPosition})}
 		else
 			if Flag.color \= State.teamColor then 
-				{Adjoin State state(path:{ShortestPath Input.map State.position State.startPosition} playerStatus: {ChangePlayerStatus State.playersStatus ID.id playerstate(hasflag:Flag)})}
+				{Adjoin State state(path:{ShortestPath Input.map State.position State.startPosition } playerStatus: {ChangePlayerStatus State.playersStatus ID.id playerstate(hasflag:Flag)})}
 				else
 			{Adjoin State state(playerStatus: {ChangePlayerStatus State.playersStatus ID.id playerstate(hasflag:Flag)})}
 			end
@@ -489,9 +489,8 @@ end
 		end 
 	end
 	fun {Respawn State}
-		{Adjoin State state(hp:Input.startHealth position: State.startPosition path:{ShortestPath Input.map State.startPosition {GetEnnemyFlag State.flags  {GetEnnemyColor State.id.id}}})}
+		{Adjoin State state(hp:Input.startHealth position: State.startPosition path:{ShortestPath Input.map State.startPosition {GetEnnemyFlag State.flags  {GetEnnemyColor State.id.id}}.pos})}
 	end
-
 	fun {Distance Pos1 Pos2}
 		{Abs Pos1.x-Pos2.x}+{Abs Pos1.y-Pos2.y}
 	end
