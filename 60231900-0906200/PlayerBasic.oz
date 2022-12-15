@@ -371,10 +371,17 @@ end
 		ID = State.id
 		if (State.gunReloads\=1)then
 			Kind = gun
+<<<<<<< HEAD
 		elseif (State.mineReloads\=5) then 
 			Kind = mine
 		else
 			Kind = null
+=======
+		elseif (State.mineReloads\=5)
+			Kind = mine
+		else
+			null
+>>>>>>> 9a54f485764387434fa33c5b7bf69ce5af847608
 		end
 		State
 	end
@@ -483,6 +490,53 @@ end
 	end
 	fun {Respawn State}
 		{Adjoin State state(hp:Input.startHealth position: State.startPosition path:{ShortestPath Input.map State.startPosition {GetEnnemyFlag State.flags  {GetEnnemyColor State.id.id}}})}
+	end
+
+	fun {Distance Pos1 Pos2}
+		{Abs Pos1.x-Pos2.x}+{Abs Pos1.y-Pos2.y}
+	end
+
+	fun {InManhattan N ToFind State}
+		fun {SearchPlayer N Pos LPlayer}
+			case LPlayer of nil then nil
+			[] H|T then
+				if {Distance Pos H.currentposition}=<N then 
+					H|{SearchPlayer N Pos T}
+				else
+					{SearchPlayer N Pos T}
+				end
+			end
+		end
+		fun {SearchMine N Pos LMine}
+			case LMine of nil then nil
+			[] H|T then
+				if {Distance Pos H.pos}=<N then 
+					H|{SearchMine N Pos T}
+				else
+					{SearchMine N Pos T}
+				end
+			end
+		end
+		fun {SearchFood N Pos LFood}
+			case LFood of nil then nil
+			[] H|T then
+				if {Distance Pos H.pos}=<N then
+					H|{SearchFood N Pos T}
+				else
+					{SearchFood N Pos T}
+				end
+			end
+		end
+	in
+		case ToFind of player then
+			{SearchPlayer N State.position State.playersStatus}
+		[] mine then
+			{SearchFood N State.position State.mines}
+		[] food then
+			{SearchFood N State.position State.food}
+		else
+			nil
+		end
 	end
 
 end
