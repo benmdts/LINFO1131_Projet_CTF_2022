@@ -513,6 +513,7 @@ in
 			MineState
 			Replaced
 		in 
+			
 			if {CheckDead State ID} then 
 				Dead=true 
 				State

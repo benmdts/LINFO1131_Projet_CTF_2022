@@ -42,10 +42,131 @@ define
 	GetPlayerState
 	RemoveFromList
 	ChangeFlags
+	GetEnnemyColor
+	ShortestPath
+	CreatePath
+	ShortestPathHelper
+	Visit
+	ModifyList
+	ModifyListHelper
+	CreateMatrix
+	CreateRow
+	GetEnnemyFlag
+	
 
 	% Helper functions
 	RandomInRange = fun {$ Min Max} Min+({OS.rand}mod(Max-Min+1)) end
 in
+
+	fun {ShortestPath Map StartPosition FinalPosition}
+    Sx Sy Dx Dy Matrix Start Src Queue Result Path in 
+    Sx = StartPosition.x
+    Sy = StartPosition.y
+    Dx = FinalPosition.x
+    Dy = FinalPosition.y
+    Matrix = {CreateMatrix Map 1 StartPosition}
+    Src = {List.nth {List.nth Matrix Sx} Sy}
+    Queue = [Src]
+    Result = {ShortestPathHelper Matrix Queue Dx Dy}
+    if Result == nil then 
+        nil
+    else
+        {Reverse {CreatePath nil Result}}.2
+    end
+end 
+
+fun {CreatePath Path P}
+    if P==nil then 
+        Path
+    else 
+        {CreatePath {Append Path [pt(x:P.x y:P.y)]} P.prev}
+    end
+end
+
+fun{ShortestPathHelper Matrix Queue Dx Dy}
+    Head P Tail in 
+        {List.takeDrop Queue 1 Head Tail}
+        P = Head.1
+        
+        if(P\=nil) then 
+            if(P.x==Dx andthen P.y==Dy) then 
+                P
+            else 
+             NewQueue1 NewQueue2 NewQueue3 NewQueue4 NewMatrix1 NewMatrix2 NewMatrix3 NewMatrix4 
+            in 
+                {Visit Matrix Tail P.x-1 P.y P NewQueue1 NewMatrix1}
+               {Visit NewMatrix1 NewQueue1 P.x P.y-1 P NewQueue2 NewMatrix2}
+                {Visit NewMatrix2 NewQueue2 P.x+1 P.y P NewQueue3 NewMatrix3}
+               {Visit NewMatrix3 NewQueue3 P.x P.y+1 P NewQueue4 NewMatrix4}
+                if {Length NewQueue4} >0 then 
+                    {ShortestPathHelper NewMatrix4 NewQueue4 Dx Dy}
+                else 
+                    nil
+                end
+            end
+        else 
+            nil
+        end
+end
+
+proc {Visit Matrix Queue X Y Previous ?NewQueue ?NewMatrix}
+
+    if X=<0 orelse X> {Length Matrix} orelse Y=<0 orelse Y > {Length Matrix.1} orelse {List.nth {List.nth Matrix X} Y}==nil then 
+        NewQueue = Queue
+        NewMatrix = Matrix
+    else
+        Dist P in 
+            Dist = Previous.dist + 1
+            P = {List.nth {List.nth Matrix X} Y}
+            if Dist < P.dist then 
+                NewMatrix = {ModifyList Matrix X Y tile(dist:Dist prev:Previous)}
+                NewQueue = {Append Queue [{Adjoin P tile(dist:Dist prev: Previous)}]}
+                %{Browse NewMatrix}
+                %{Browse NewQueue}
+            else 
+               NewQueue = Queue
+               NewMatrix = Matrix
+            end
+    end
+end
+
+fun {ModifyList Matrix Row Column Value}
+    Head Tail in
+        {List.take Matrix Row-1 Head}
+        {List.drop Matrix Row Tail}
+        {Append{Append Head[{ModifyListHelper {List.nth Matrix Row} Column Value}]}Tail}
+end
+fun {ModifyListHelper Row Column Value}
+    Head Tail in 
+        {List.take Row Column-1 Head}
+        {List.drop Row Column Tail}
+        {Append{Append Head [{Adjoin {List.nth Row Column} Value}]}Tail}
+        
+end
+
+fun {CreateMatrix Map Row Start}
+    if Row =< {Length Map} then 
+        {CreateRow Map Row 1 Start}|{CreateMatrix Map Row + 1 Start}
+    else 
+        nil
+    end 
+end
+
+fun {CreateRow Map Row Column Start}
+    Value in 
+    if Column =< {Length Map.1} then 
+        Value = {List.nth {List.nth Map Row} Column}
+        if Value\=3 andthen Start.x==Row andthen Start.y == Column then
+            tile(x:Row y:Column dist:0 prev: nil)|{CreateRow Map Row Column+1 Start}
+        elseif Value\=3 then 
+            tile(x:Row y: Column dist:999999 prev: nil)|{CreateRow Map Row Column+1 Start}
+        else 
+            nil|{CreateRow Map Row Column+1 Start}
+        end 
+    else 
+        nil 
+    end
+end 
 	fun {StartPlayer Color ID}
 		Stream
 		Port
@@ -66,6 +187,7 @@ in
 					playersStatus : {CreatePlayerStatus 1 ID}
 					food: nil
 					hasflag : nil
+					path : {ShortestPath Input.map {List.nth Input.spawnPoints ID} {GetEnnemyFlag Input.flags {GetEnnemyColor ID}}.pos}
 					teamColor : {List.nth Input.colors ID}
 				)
 			}
@@ -73,7 +195,16 @@ in
 		Port
 	end
 	%ICI ID est juste le chiffre
-
+	fun {GetEnnemyFlag Flags Color}
+		case Flags of nil then nil 
+		[]Flag|T then 
+			if Color == Flag.color then 
+				Flag
+			else 
+				{GetEnnemyFlag T Color}
+			end 
+		end 
+	end
 	fun {CreatePlayerStatus Index PlayerIndex} 
 		if {Length Input.spawnPoints} ==Index-1 then nil
 		else  
@@ -91,7 +222,13 @@ in
 			end
 		end 
 	end 
-
+	fun {GetEnnemyColor ID}
+		if(ID>1) then 
+			{List.nth Input.colors ID-1}
+		else 
+			{List.nth Input.colors ID+1}
+		end
+	end
 	fun {ChangePlayerStatus PlayersList PlayerID NewValue}
 		case PlayersList of nil then nil
 		[] PlayerState|T then
@@ -172,67 +309,33 @@ in
 	end
 
 	fun {Move State ?ID ?Position}
-		CurrentPosition 
-	in 
 		ID = State.id
-		case State.id 
-		of id(name:_ id:_ color:Color) then 
-			if Color == blue then 
-			CurrentPosition = State.position
-			case CurrentPosition 
-				of pt(x:X y:Y) then 
-					if X == 3 then 
-						if(Y > 2) then 
-						Position = pt(x:CurrentPosition.x y:CurrentPosition.y-1)
-						else
-						Position = pt(x:CurrentPosition.x-1 y:CurrentPosition.y-1)
-						end 
-					else if X > 3 then 
-						Position = pt(x:CurrentPosition.x - 1 y:CurrentPosition.y)
-					else 
-						Position = pt(x:CurrentPosition.x y:CurrentPosition.y)
-					end 
-				end 
-			end 
-			State
-			else
-				case CurrentPosition 
-				of pt(x:X y:Y) then 
-				if X < 7 then 
-					Position = pt(x:CurrentPosition.x + 1 y:CurrentPosition.y)
-				else if X > 7 then 
-					Position = pt(x:CurrentPosition.x - 1 y:CurrentPosition.y)
-				else 
-					Position = pt(x:CurrentPosition.x y:CurrentPosition.y)
-				end 
-				end 
-				end 
-				State
-			end 
-		end  
+		Position = {List.nth State.path 1}
+		State
 	end
 
 
 	% À modifier pas complet mais je sais pas encore quoi faire quand ce n'est pas le même id qui a bougé
 	% idée : Enregistrer dans une liste, comme pour main avec playerStatus, ce qui permettra de bouger en fonction 
 	fun {SayMoved State ID Position}
-		NewState in 
+		NewState PlayerState in 
 		if ID == State.id then 
-			if State.position == nil then 
-				NewState = {Adjoin State state(position:Position hp:Input.startHealth)}
+			if(State.hasflag\=nil) then
+			NewState = {Adjoin State state(flag:{ChangeFlags State.flags State.teamColor flag(pos:Position)} position:Position path: State.path.2)}
 			else
-				if(State.hasflag\=nil) then
-				NewState = {Adjoin State state(flag:{ChangeFlags State.flags State.teamColor flag(pos:Position)} position:Position)}
-				else
-					NewState = {Adjoin State state(position:Position)}
-				end 
+				NewState = {Adjoin State state(position:Position path: State.path.2)}
 			end 
 		else
-			if {GetPlayerState State.playersStatus ID.id}.currentposition==nil then 
+			PlayerState = {GetPlayerState State.playersStatus ID.id}
+			if PlayerState.currentposition==nil then 
 				NewState = {Adjoin State state(playersStatus:{ChangePlayerStatus State.playersStatus ID.id playerstate(currentposition:Position hp:Input.startHealth)})} 
 			else 
-				if(State.hasflag\=nil) then
-				NewState = {Adjoin State state(flag:{ChangeFlags State.flags {GetPlayerState State.playersStatus ID.id}.teamColor flag(pos:Position)} playersStatus:{ChangePlayerStatus State.playersStatus ID.id playerstate(currentposition:Position)})}
+				if(PlayerState.hasflag\=nil) then
+					if PlayerState.teamColor == State.teamColor then 
+						NewState = {Adjoin State state(flag:{ChangeFlags State.flags PlayerState.teamColor flag(pos:Position)} path:{ShortestPath Input.map State.currentposition Position} playersStatus:{ChangePlayerStatus State.playersStatus ID.id playerstate(currentposition:Position)})}
+						else 
+				NewState = {Adjoin State state(flag:{ChangeFlags State.flags PlayerState.teamColor flag(pos:Position)} playersStatus:{ChangePlayerStatus State.playersStatus ID.id playerstate(currentposition:Position)})}
+				end
 				else
 				NewState = {Adjoin State state(playersStatus:{ChangePlayerStatus State.playersStatus ID.id playerstate(currentposition:Position)})} 
 				end 
@@ -241,6 +344,8 @@ in
 		NewState
 
 	end
+
+
 
 	%Comme pour au dessus ici il faudrait changer la liste qu'on utiliserait pour stocker l'endroit des mines
 	fun {SayMineExplode State Mine}
@@ -264,14 +369,13 @@ in
 
 	fun {ChargeItem State ?ID ?Kind} 
 		ID = State.id
-		Kind = mine
-		/* 
-		if (State.gunReloads==0)then
+		if (State.gunReloads\=1)then
 			Kind = gun
-		else
+		elseif (State.mineReloads\=5) then 
 			Kind = mine
+		else
+			Kind = null
 		end
-		 */
 		State
 	end
 
@@ -285,6 +389,8 @@ in
 
 	fun {FireItem State ?ID ?Kind}
 		ID = State.id
+		Kind = null
+		/* 
 		if (State.gunReloads==1) then 
 			Kind =gun(pos:pt(x:State.position.x+1 y:State.position.y+1))
 		elseif (State.mineReloads==5) then
@@ -292,6 +398,7 @@ in
 		else 
 			Kind = null
 		end
+		*/
 		State
 	end
 
@@ -331,15 +438,24 @@ in
     end
 
 	fun {TakeFlag State ?ID ?Flag}
+		Color in 
 		ID = State.id
-		Flag = flag(pos:State.position color:red)
+		Color = {GetEnnemyColor ID.id}
+		if {Member flag(pos:State.position color:Color) State.flags} then 
+			Flag = flag(pos:State.position color:Color)
+		else 
+			Flag = null
+		end
 		State
 	end
 			
 	fun {DropFlag State ?ID ?Flag}
+		Team Tile in 
 		ID = State.id
-		if State.position == pt(x:3 y:3) then 
-			Flag = flag(pos: State.position color: red) 
+		Team=ID.id mod 2
+		Tile={List.nth {List.nth Input.map State.position.x} State.position.y}-1
+		if (Tile==Team) then 
+			Flag = flag(pos: State.position color: {GetEnnemyColor ID}) 
 		else
 		Flag = null
 		end 
@@ -348,9 +464,13 @@ in
 
 	fun {SayFlagTaken State ID Flag}
 		if ID == State.id then 
-			{Adjoin State state(hasflag:Flag)}
+			{Adjoin State state(hasflag:Flag path:{ShortestPath Input.map State.position State.startPosition})}
 		else
+			if Flag.color \= State.teamColor then 
+				{Adjoin State state(path:{ShortestPath Input.map State.position State.startPosition} playerStatus: {ChangePlayerStatus State.playersStatus ID.id playerstate(hasflag:Flag)})}
+				else
 			{Adjoin State state(playerStatus: {ChangePlayerStatus State.playersStatus ID.id playerstate(hasflag:Flag)})}
+			end
 		end 
 	end
 
@@ -362,7 +482,7 @@ in
 		end 
 	end
 	fun {Respawn State}
-		{Adjoin State state(hp:Input.startHealth position: State.startPosition)}
+		{Adjoin State state(hp:Input.startHealth position: State.startPosition path:{ShortestPath Input.map State.startPosition {GetEnnemyFlag State.flags  {GetEnnemyColor State.id.id}}})}
 	end
 
 end
