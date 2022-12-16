@@ -78,13 +78,17 @@ proc{SpawmWallsRow Matrix Row Column}
 end
 
 proc {CheckTile Matrix Row Column}
-    for variable in iterable do
-        body
-    end
+    if {Not {IsDet {List.nth {List.nth Matrix Row} Column}}} then 
+        true
+    elseif {List.nth {List.nth Matrix Row} Column}==0 then 
+        true
+    else 
+        false
+    end 
 
 end
 
- */
+
 proc {FillRow Row}
     case Row of nil then skip
     []H|T then 

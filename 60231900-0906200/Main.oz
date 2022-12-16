@@ -183,7 +183,6 @@ in
 		in
 			{Send Port takeFlag(ID Flag)}
 			if Flag \=null then 
-				{System.show Flag}
 				{Send StatePort playerTakeFlag(ID Flag IsDead)}
 			else
 				{Send StatePort isAlive(ID IsDead)}

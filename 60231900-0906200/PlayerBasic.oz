@@ -341,8 +341,10 @@ end
 				NewState = {Adjoin State state(playersStatus:{ChangePlayerStatus State.playersStatus ID.id playerstate(currentposition:Position hp:Input.startHealth)})} 
 			else 
 				if(PlayerState.hasflag\=nil) then
-					NewState = {Adjoin State state(flag:{ChangeFlags State.flags PlayerState.teamColor flag(pos:Position)} playersStatus:{ChangePlayerStatus State.playersStatus ID.id playerstate(currentposition:Position)})}
+					{System.show 'Someone move with The flag'}
+					NewState = {Adjoin State state(flags:{ChangeFlags State.flags {GetEnnemyColor ID.id} flag(pos:Position)} playersStatus:{ChangePlayerStatus State.playersStatus ID.id playerstate(currentposition:Position)})}
 				else
+					{System.show 'Someone move without The flag'}
 					NewState = {Adjoin State state(playersStatus:{ChangePlayerStatus State.playersStatus ID.id playerstate(currentposition:Position)})} 
 				end 
 			end
@@ -497,15 +499,9 @@ end
 		if ID == State.id then 
 			{System.show 'Jai drop'|ID}
 			{Adjoin State state(hasflag:nil)}
-<<<<<<< HEAD
 		elseif Flag.color \= State.id.color then
 			{System.show 'Je go a mon flag'|State.flags}
 			{Adjoin State state(playersStatus: {ChangePlayerStatus State.playersStatus ID.id playerstate(hasflag:nil)} path:{ShortestPath Input.map State.position {GetEnnemyFlag State.flags {GetEnnemyColor ID.id}}.pos})}
-=======
-		elseif Flag.color == State.id.color then
-			{System.show 'Je go a mon flag'|State.flags}
-			{Adjoin State state(hasflag:nil path:{ShortestPath Input.map State.position {GetEnnemyFlag State.flags State.id.color}.pos})}
->>>>>>> 02fe1c1ad2d015ed88d621b15b33d2616793e98f
 		else
 			{Adjoin State state(playersStatus: {ChangePlayerStatus State.playersStatus ID.id playerstate(hasflag:nil)})}
 		end 
