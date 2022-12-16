@@ -138,7 +138,7 @@ in
 			end
 		end
 
-		{Delay 1000} % Il réfléchis
+		{SimulatedThinking} % Il réfléchis
 		
 		%Ask where the player want to go and move if its valid, if he walked on a mine then BOOM
 		local
@@ -181,6 +181,7 @@ in
 		in
 			{Send Port takeFlag(ID Flag)}
 			if Flag \=null then 
+				{System.show Flag}
 				{Send StatePort playerTakeFlag(ID Flag IsDead)}
 			else
 				{Send StatePort isAlive(ID IsDead)}
@@ -525,28 +526,17 @@ in
 		end
 	end
 
-	proc {PlaceMine LMine}
-		case LMine of nil then skip
-		[] H|T then
-			{Send WindowPort putMine(H)}
-			{PlaceMine T}
-		end
-	end
-
 	fun {StartGame PlayersStatus}
 		Stream
 		Port
-		State
 	in
 		
 		%{Send WindowPort putMine(Weapon)}
 		{NewPort Stream Port}
-		State=state(mines:Input.mines flags:Input.flags playersStatus:PlayersStatus food:nil)
-		{PlaceMine State.mines}
 		thread
 			{TreatStream
 			 	Stream
-				State
+				state(mines:nil flags:Input.flags playersStatus:PlayersStatus food:nil)
 			}
 		end
 		Port
