@@ -120,6 +120,7 @@ in
 end
 
 proc {SpawnWalls Matrix Row Column} 
+    % Fais spawn les murs
     if Column==13 then
         {SpawnWalls Matrix Row+1 1}
     elseif Row ==13 then 
