@@ -41,7 +41,8 @@ define
 	CheckFreeTileHelper 
 	RemoveFood
 	CheckDead
-
+	PlaceMine
+	CheckAround
 	
 
 	proc {DrawFlags Flags Port}
@@ -125,6 +126,8 @@ in
 		%---------------------------------------------------------------
 		
 		%Regarde s'il est en vie
+
+
 		local 
 			IsDead
 		in
@@ -137,7 +140,7 @@ in
 			end
 		end
 
-		{SimulatedThinking} % Il réfléchis
+		 {SimulatedThinking}% Il réfléchis
 		
 		%Ask where the player want to go and move if its valid, if he walked on a mine then BOOM
 		local
@@ -299,21 +302,43 @@ in
 	
 	Il faut encore regarder si un autre joueur est touché par la mine ou pas 
 	*/
-	fun {CheckMines ID State Position MinesList} 
-		StatePlayerAfterMines in
-		case MinesList of nil then State
-		[] mine(pos:MinePos)|T then 		
-			if MinePos == Position then 
-				StatePlayerAfterMines = {CheckOtherPlayersNearMines State State.playersStatus Position}
-				{Send WindowPort removeMine(mine(pos:MinePos))}
-				{SayToAllPlayers PlayersPorts sayMineExplode(mine(pos:MinePos))}
-				% Regarder si d'autres personnes sont pas sur la mine
-				{Adjoin StatePlayerAfterMines state(mines:{RemoveMineFromList State.mines Position})}
-			else 
-				{CheckMines ID State Position T}
-			end 
-		end 
-	end 
+	fun {CheckMines State Position}
+		StatePlayerAfterMines 
+		fun {IterateInMines State Position LMine}
+			case LMine of nil then State
+			[] mine(pos:MinePos)|T then
+				if MinePos == Position then
+					StatePlayerAfterMines = {CheckOtherPlayersNearMines State State.playersStatus Position}
+					{Send WindowPort removeMine(mine(pos:MinePos))}
+					{SayToAllPlayers PlayersPorts sayMineExplode(mine(pos:MinePos))}
+					% Regarder si d'autres personnes sont pas sur la mine
+					{CheckAround {Adjoin StatePlayerAfterMines state(mines:{RemoveMineFromList State.mines Position})} Position}
+				else
+					{IterateInMines State Position T}
+				end
+			end
+		end
+	in
+		{IterateInMines State Position State.mines}
+	end
+
+	fun {CheckAround State Position}
+		fun {CheckEachSide N State Position}
+			X
+			Y
+		in
+			if N<3 then
+				X=Position.x+(N mod 2)
+				Y=Position.y+((N-1) mod 2)
+				%On regarde si c'est pas sur un bord pour eviter le calcul pour rien
+				{CheckEachSide N+1 {CheckMines State pt(x:X y:Y)} Position}
+			else
+				State
+			end
+		end
+	in 
+		{CheckEachSide ~1 State Position}
+	end
 
 	%Enlève la mine de la liste. Utile pour enlever la mine de l'état
 	fun {RemoveMineFromList MinesList Position}
@@ -369,9 +394,25 @@ in
 	%Regarde si un shoot de gun est valide en distance de manhattan
 	fun {ValidHit PlayerPos WeaponPos}
 		Distance
+		X
+		Y
 	in
-		Distance={Abs PlayerPos.x-WeaponPos.x}+{Abs PlayerPos.y-WeaponPos.y}
-		Distance==2 orelse Distance==1
+		if WeaponPos.x=<Input.nRow andthen WeaponPos.y=<Input.nColumn andthen WeaponPos.x>0 andthen WeaponPos.y>0 then
+			X={Abs PlayerPos.x-WeaponPos.x}
+			Y={Abs PlayerPos.y-WeaponPos.y}
+			Distance=X+Y
+			if Distance==2 then
+				if {Abs X-Y}==0 then 
+					{Not ({List.nth {List.nth Input.map PlayerPos.x} WeaponPos.y}==3) andthen ({List.nth {List.nth Input.map WeaponPos.x} PlayerPos.y}==3)}
+				else
+					{List.nth {List.nth Input.map {Int.'div' (PlayerPos.x+WeaponPos.x) 2}} {Int.'div' (PlayerPos.y+WeaponPos.y) 2}}\=3
+				end
+			else
+				Distance==1
+			end
+		else
+			false
+		end
 	end
 
 	%TryToShootPlayer renvoie le nouvel état des joueurs (si personne n'a été touché ca reste le meme)
@@ -490,6 +531,8 @@ in
 		Stream
 		Port
 	in
+		
+		%{Send WindowPort putMine(Weapon)}
 		{NewPort Stream Port}
 		thread
 			{TreatStream
@@ -523,18 +566,17 @@ in
 		[] move(ID Position ?Dead) then
 			%I est un record
 			% On vérifie s'il a marché sur une mine juste après
-			MovePlayerState 
+			MovePlayerState
 			MineState
 			Replaced
-		in 
-			
+		in
 			if {CheckDead State ID} then 
 				Dead=true 
 				State
 			else
 				MovePlayerState={MovePlayer ID State Position Replaced}
 				if Replaced then
-					MineState={CheckMines ID MovePlayerState Position State.mines}
+					MineState={CheckMines MovePlayerState Position}
 				else
 					MineState=MovePlayerState
 				end
@@ -592,7 +634,7 @@ in
 				%Type=mine & Assez de charge pour tirer & Tire Valide
 				elseif ({Record.label Weapon}==gun andthen ({GetPlayerState State.playersStatus ID}.chargegun == Input.gunCharge) andthen {ValidHit {GetPlayerState State.playersStatus ID}.currentposition Weapon.pos}) then
 					{SayToAllPlayers PlayersPorts sayShoot(ID Weapon.pos)}
-					TempState={TryShootPlayer ID {CheckMines ID State Weapon.pos State.mines} Weapon.pos State.playersStatus}
+					TempState={TryShootPlayer ID {CheckMines State Weapon.pos} Weapon.pos State.playersStatus}
 					Dead=false
 					{Adjoin TempState state(playersStatus:{ChangePlayerStatus TempState.playersStatus ID playerstate(chargegun:0)})}
 				else
@@ -609,6 +651,7 @@ in
 			else
 				PlayerState={GetPlayerState State.playersStatus ID} 
 				if ((PlayerState.hasflag == nil) andthen (PlayerState.currentposition==Flag.pos) andthen (PlayerState.id.color\=Flag.color) andthen {List.member Flag State.flags}) then
+					{System.show 'FLAG TAKEN'}
 					{SayToAllPlayers PlayersPorts sayFlagTaken(ID Flag)}
 					Dead=false
 					{Adjoin State state(playersStatus: {ChangePlayerStatus State.playersStatus ID playerstate(hasflag:Flag)})}
@@ -651,13 +694,11 @@ in
 		% Open window
 		{Send WindowPort buildWindow}
 		{System.show buildWindow}
-		{Delay 3000}
+		{Delay 5000}
         % Create port for players
 		PlayersPorts = {DoListPlayer Input.players Input.colors 1} 
 		PlayersStatus = {CreatePlayerStatus PlayersPorts}
 		GameStatePort = {StartGame PlayersStatus}
-		
-		
 		{InitThreadForAll PlayersPorts PlayersStatus GameStatePort}
 
 	end
