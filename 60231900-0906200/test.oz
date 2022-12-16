@@ -1,10 +1,26 @@
-declare 
+local
+    CreateMapMatrix
+    CreateMap
+    SpawnWalls
+    FillRow
+    FillColumn
+    BindRow
+    BindColumn
+    ShortestPath
+    CreatePath
+    ShortestPathHelper
+    Visit
+    ModifyList
+    ModifyListHelper
+    CreateMatrix
+    CreateRow
+in 
 
-fun {CreateMatrix Rows Columns}
+fun {CreateMapMatrix Rows Columns}
 		if(Rows==0) then 
 			nil
 		else 
-			{List.make Columns}|{CreateMatrix Rows-1 Columns}
+			{List.make Columns}|{CreateMapMatrix Rows-1 Columns}
 		end
 end
 
@@ -13,8 +29,8 @@ fun {CreateMap}
     StartSpawn
     Map 
 in 
-    Map = {CreateMatrix 12 12}
-    Side = ({OS.rand} mod 2)
+    Map = {CreateMapMatrix 12 12}
+    Side = 0
     StartSpawn = ({OS.rand} mod (10 - 1) + 1)
     if(Side==0) then 
         %Crée le spawn pour l'équipe 1
@@ -46,48 +62,33 @@ in
         {BindColumn Map 3 StartSpawn+1 StartSpawn+2 0}
         {BindColumn Map 10 12-StartSpawn 13-StartSpawn 0}
     end
-    %{SpawnWalls Matrix}
+    {SpawnWalls Map 1 1}
+    {Browse Map}
+    {Browse pt(x:1  y:StartSpawn+1)| pt(x:10  y:12-StartSpawn)}
+    if({ShortestPath Map pt(x:1  y:StartSpawn+1) pt(x:10  y:12-StartSpawn)}==nil) then 
+        {CreateMap}
+    else
     Map
+    end
 end
 
 proc {SpawnWalls Matrix Row Column} 
-    if Column==12 then
+    if Column==13 then
         {SpawnWalls Matrix Row+1 1}
-    elseif Row ==12 then 
+    elseif Row ==13 then 
         skip
+    elseif {IsDet {List.nth {List.nth Matrix Row} Column}} then 
+         {SpawnWalls Matrix Row Column+1}
     else 
-        if ({OS.rand} mod 2) ==0 then {SpawmWalls Matrix Row Column+1}
+        Value in 
+        if ({OS.rand} mod 4) ==0 then Value = 3
         else 
-            VorH = ({OS.rand} mod 2)
-        in 
-            if VorH==0 then 
-                {SpawmWallsRow Matrix Row Column}
-            else 
-                 {SpawmWallsColumn Matrix Row Column}
-            end
-            {SpawnWalls Matrix Row Column+1} 
+            Value = 0
         end 
+        {List.nth {List.nth Matrix Row} Column} = Value
+        {SpawnWalls Matrix Row Column+1} 
     end   
 end
-
-proc{SpawmWallsRow Matrix Row Column}
-    case Row of nil then skip
-    []H|T then 
-        if {IsDet H} then {SpawmWallsRow T} 
-        else 
-end
-
-proc {CheckTile Matrix Row Column}
-    if {Not {IsDet {List.nth {List.nth Matrix Row} Column}}} then 
-        true
-    elseif {List.nth {List.nth Matrix Row} Column}==0 then 
-        true
-    else 
-        false
-    end 
-
-end
-
 
 proc {FillRow Row}
     case Row of nil then skip
@@ -126,6 +127,117 @@ proc {BindColumn Matrix Column Row Size Value}
     end
 end
 
+fun {ShortestPath Map StartPosition FinalPosition}
+    Sx Sy Dx Dy Matrix Start Src Queue Result Path in 
+    Sx = StartPosition.x
+    Sy = StartPosition.y
+    Dx = FinalPosition.x
+    Dy = FinalPosition.y
+    Matrix = {CreateMatrix Map 1 StartPosition}
+    Src = {List.nth {List.nth Matrix Sx} Sy}
+    Queue = [Src]
+    Result = {ShortestPathHelper Matrix Queue Dx Dy}
+    if Result == nil then 
+        nil
+    else
+        {Reverse {CreatePath nil Result}}.2
+    end
+end 
+
+fun {CreatePath Path P}
+    if P==nil then 
+        Path
+    else 
+        {CreatePath {Append Path [pt(x:P.x y:P.y)]} P.prev}
+    end
+end
+
+fun{ShortestPathHelper Matrix Queue Dx Dy}
+    Head P Tail in 
+        {List.takeDrop Queue 1 Head Tail}
+        P = Head.1
+        
+        if(P\=nil) then 
+            if(P.x==Dx andthen P.y==Dy) then 
+                P
+            else 
+             NewQueue1 NewQueue2 NewQueue3 NewQueue4 NewMatrix1 NewMatrix2 NewMatrix3 NewMatrix4 
+            in 
+                {Visit Matrix Tail P.x-1 P.y P NewQueue1 NewMatrix1}
+               {Visit NewMatrix1 NewQueue1 P.x P.y-1 P NewQueue2 NewMatrix2}
+                {Visit NewMatrix2 NewQueue2 P.x+1 P.y P NewQueue3 NewMatrix3}
+               {Visit NewMatrix3 NewQueue3 P.x P.y+1 P NewQueue4 NewMatrix4}
+                if {Length NewQueue4} >0 then 
+                    {ShortestPathHelper NewMatrix4 NewQueue4 Dx Dy}
+                else 
+                    nil
+                end
+            end
+        else 
+            nil
+        end
+end
+
+proc {Visit Matrix Queue X Y Previous ?NewQueue ?NewMatrix}
+
+    if X=<0 orelse X> {Length Matrix} orelse Y=<0 orelse Y > {Length Matrix.1} orelse {List.nth {List.nth Matrix X} Y}==nil then 
+        NewQueue = Queue
+        NewMatrix = Matrix
+    else
+        Dist P in 
+            Dist = Previous.dist + 1
+            P = {List.nth {List.nth Matrix X} Y}
+            if Dist < P.dist then 
+                NewMatrix = {ModifyList Matrix X Y tile(dist:Dist prev:Previous)}
+                NewQueue = {Append Queue [{Adjoin P tile(dist:Dist prev: Previous)}]}
+                %{Browse NewMatrix}
+                %{Browse NewQueue}
+            else 
+               NewQueue = Queue
+               NewMatrix = Matrix
+            end
+    end
+end
+
+fun {ModifyList Matrix Row Column Value}
+    Head Tail in
+        {List.take Matrix Row-1 Head}
+        {List.drop Matrix Row Tail}
+        {Append{Append Head[{ModifyListHelper {List.nth Matrix Row} Column Value}]}Tail}
+end
+fun {ModifyListHelper Row Column Value}
+    Head Tail in 
+        {List.take Row Column-1 Head}
+        {List.drop Row Column Tail}
+        {Append{Append Head [{Adjoin {List.nth Row Column} Value}]}Tail}
+        
+end
+
+fun {CreateMatrix Map Row Start}
+    if Row =< {Length Map} then 
+        {CreateRow Map Row 1 Start}|{CreateMatrix Map Row+1 Start}
+    else 
+        nil
+    end 
+end
+
+fun {CreateRow Map Row Column Start}
+    Value in 
+    if Column =< {Length Map.1} then 
+        Value = {List.nth {List.nth Map Row} Column}
+        if Value\=3 andthen Start.x==Row andthen Start.y == Column then
+            tile(x:Row y:Column dist:0 prev: nil)|{CreateRow Map Row Column+1 Start}
+        elseif Value\=3 then 
+            tile(x:Row y: Column dist:999999 prev: nil)|{CreateRow Map Row Column+1 Start}
+        else 
+            nil|{CreateRow Map Row Column+1 Start}
+        end 
+    else 
+        nil 
+    end
+end 
 
 
 {Browse {CreateMap}}
+
+end 

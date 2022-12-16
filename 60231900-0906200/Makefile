@@ -51,7 +51,7 @@ clean:
 	rm *.ozf
 
 input:
-	$(OZC) -c InputTest.oz -o "Input.ozf"
+	$(OZC) -c Input.oz -o "Input.ozf"
 
 input-reset:
 	rm Input.ozf
