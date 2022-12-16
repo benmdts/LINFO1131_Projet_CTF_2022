@@ -51,7 +51,7 @@ define
 	ModifyListHelper
 	CreateMatrix
 	CreateRow
-	GetEnemyFlag
+	GetEnnemyFlag
 	Distance
 	InManhattan
 	
@@ -189,7 +189,7 @@ end
 					playersStatus : {CreatePlayerStatus 1 ID}
 					food: nil
 					hasflag : nil
-					path : {ShortestPath Input.map {List.nth Input.spawnPoints ID} {GetEnemyFlag Input.flags {List.nth Input.colors ID}}.pos}
+					path : {ShortestPath Input.map {List.nth Input.spawnPoints ID} {GetEnnemyFlag Input.flags {GetEnnemyColor ID}}.pos}
 					teamColor : {List.nth Input.colors ID}
 					rand:false
 				)
@@ -198,13 +198,13 @@ end
 		Port
 	end
 	%ICI ID est juste le chiffre
-	fun {GetEnemyFlag Flags Color}
+	fun {GetEnnemyFlag Flags Color}
 		case Flags of nil then nil 
 		[]Flag|T then 
 			if Color == Flag.color then 
 				Flag
 			else 
-				{GetEnemyFlag T Color}
+				{GetEnnemyFlag T Color}
 			end 
 		end 
 	end
@@ -490,13 +490,13 @@ end
 
 	fun {SayFlagTaken State ID Flag}
 		NewState in 
-		if ID == State.id then
+		if ID == State.id then 
 			NewState = {Adjoin State state(hasflag:Flag path:{ShortestPath Input.map State.position State.startPosition})}
 		else
 			if Flag.color \= State.teamColor then 
 				NewState = {Adjoin State state(rand:true path:{ShortestPath Input.map State.position State.startPosition } playersStatus: {ChangePlayerStatus State.playersStatus ID.id playerstate(hasflag:Flag)})}
 			else
-				NewState = {Adjoin State state(path:{ShortestPath Input.map State.position {GetPlayerState State.playersStatus ID}.startPosition} playersStatus: {ChangePlayerStatus State.playersStatus ID.id playerstate(hasflag:Flag)})}
+				NewState = {Adjoin State state(playersStatus: {ChangePlayerStatus State.playersStatus ID.id playerstate(hasflag:Flag)})}
 			end
 		end 
 		NewState 
@@ -506,16 +506,15 @@ end
 		if ID == State.id then 
 			{Adjoin State state(hasflag:nil)}
 		elseif Flag.color \= State.id.color then
-			{Adjoin State state(rand:false playersStatus: {ChangePlayerStatus State.playersStatus ID.id playerstate(hasflag:nil)} path:{ShortestPath Input.map State.position {GetEnemyFlag State.flags {GetEnnemyColor ID.id}}.pos})}
+			{Adjoin State state(rand:false playersStatus: {ChangePlayerStatus State.playersStatus ID.id playerstate(hasflag:nil)} path:{ShortestPath Input.map State.position {GetEnnemyFlag State.flags {GetEnnemyColor ID.id}}.pos})}
 		else
-			{Adjoin State state(path :{ShortestPath Input.map State.startPosition {GetEnemyFlag Input.flags {List.nth Input.colors State.id.id}}.pos} playersStatus: {ChangePlayerStatus State.playersStatus ID.id playerstate(hasflag:nil)})}
+			{Adjoin State state(playersStatus: {ChangePlayerStatus State.playersStatus ID.id playerstate(hasflag:nil)})}
 		end 
 	end
 
 	fun {Respawn State}
-		{Adjoin State state(hp:Input.startHealth position: State.startPosition path :{ShortestPath Input.map State.startPosition {GetEnemyFlag Input.flags {List.nth Input.colors State.id.id}}.pos})}
+		{Adjoin State state(hp:Input.startHealth position: State.startPosition )}
 	end
-
 	fun {Distance Pos1 Pos2}
 		{Abs Pos1.x-Pos2.x}+{Abs Pos1.y-Pos2.y}
 	end
