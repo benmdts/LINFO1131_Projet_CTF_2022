@@ -312,11 +312,7 @@ end
 
 	fun {Move State ?ID ?Position}
 		ID = State.id
-		if {Length State.path} >0 then 
-			Position = {List.nth State.path 1}
-		else 
-			Position = State.position
-		end
+		Position = State.position
 		State
 	end
 
@@ -396,7 +392,7 @@ end
 	fun {FireItem State ?ID ?Kind}
 		ID = State.id
 		if (State.gunReloads==1) then 
-			Kind =gun(pos:pt(x:State.position.x+1 y:State.position.y+1))
+			Kind =gun(pos:pt(x:State.position.x+1 y:State.position.y))
 		elseif (State.mineReloads==5) then
 			Kind=mine(pos:pt(x:State.position.x y:State.position.y))
 		else 
