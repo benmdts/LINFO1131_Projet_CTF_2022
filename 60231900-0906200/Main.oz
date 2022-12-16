@@ -651,7 +651,6 @@ in
 			else
 				PlayerState={GetPlayerState State.playersStatus ID} 
 				if ((PlayerState.hasflag == nil) andthen (PlayerState.currentposition==Flag.pos) andthen (PlayerState.id.color\=Flag.color) andthen {List.member Flag State.flags}) then
-					{System.show 'FLAG TAKEN'}
 					{SayToAllPlayers PlayersPorts sayFlagTaken(ID Flag)}
 					Dead=false
 					{Adjoin State state(playersStatus: {ChangePlayerStatus State.playersStatus ID playerstate(hasflag:Flag)})}

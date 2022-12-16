@@ -496,7 +496,7 @@ end
 			if Flag.color \= State.teamColor then 
 				NewState = {Adjoin State state(rand:true path:{ShortestPath Input.map State.position State.startPosition } playersStatus: {ChangePlayerStatus State.playersStatus ID.id playerstate(hasflag:Flag)})}
 			else
-				NewState = {Adjoin State state(path:{ShortestPath Input.map State.position {GetPlayerState State.playersStatus ID}.startPosition} playersStatus: {ChangePlayerStatus State.playersStatus ID.id playerstate(hasflag:Flag)})}
+				NewState = {Adjoin State state(path:{ShortestPath Input.map State.position {GetPlayerState State.playersStatus ID.id}.startPosition} playersStatus: {ChangePlayerStatus State.playersStatus ID.id playerstate(hasflag:Flag)})}
 			end
 		end 
 		NewState 

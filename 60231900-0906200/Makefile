@@ -42,6 +42,7 @@ reset-player :
 player : 
 	$(OZC) -c ${PLAYER1} -o "Player1.ozf"
 	$(OZC) -c ${PLAYER1} -o "Player2.ozf"
+
 reset-main: clean-main main run
 
 run:
@@ -56,3 +57,13 @@ input:
 input-reset:
 	rm Input.ozf
 	make input
+
+reset-player-test : 
+	rm Player1.ozf
+	rm Player2.ozf
+	$(OZC) -c PlayerSimpleAttack.oz -o "Player1.ozf"
+	$(OZC) -c PlayerSimpleDeffence.oz -o "Player2.ozf"
+
+player-test : 
+	$(OZC) -c PlayerSimpleAttack.oz -o "Player1.ozf"
+	$(OZC) -c PlayerSimpleDeffence.oz -o "Player2.ozf"
