@@ -53,6 +53,20 @@ define
 		end
 	end
 in
+	/* 
+	fun {CreateMatrix Size}
+
+
+	end
+
+	fun {CreateMap}
+		Side 
+	in 
+		{CreateMatrix 12}
+		Side = ({OS.rand} mod 2)
+
+	end
+	*/
     fun {DoListPlayer Players Colors ID}
 		case Players#Colors
 		of nil#nil then nil
