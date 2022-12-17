@@ -54,6 +54,7 @@ define
 	GetEnnemyFlag
 	Distance
 	InManhattan
+	CheckIfSomeoneHasFlag
 	
 
 	% Helper functions
@@ -189,7 +190,7 @@ end
 					playersStatus : {CreatePlayerStatus 1 ID}
 					food: nil
 					hasflag : nil
-					path : {ShortestPath Input.map {List.nth Input.spawnPoints ID} {GetEnnemyFlag Input.flags {GetEnnemyColor ID}}.pos (ID mod 2)}
+					path : {ShortestPath Input.map {List.nth Input.spawnPoints ID} {GetEnnemyFlag Input.flags {GetEnnemyColor ID}}.pos ID}
 					teamColor : {List.nth Input.colors ID}
 				)
 			}
@@ -508,10 +509,25 @@ end
 	end
 
 	fun {Respawn State}
-		{Adjoin State state(hp:Input.startHealth position: State.startPosition )}
+		if {CheckIfSomeoneHasFlag State.playersStatus State.teamColor} then 
+			{Adjoin State state(hp:Input.startHealth position: State.startPosition )}
+		else 
+			{Adjoin State state(hp:Input.startHealth position: State.startPosition path: {ShortestPath Input.map State.startPosition {GetEnnemyFlag Input.flags {GetEnnemyColor State.id.id}}.pos State.id.id})}
+		end 
 	end
 	fun {Distance Pos1 Pos2}
 		{Abs Pos1.x-Pos2.x}+{Abs Pos1.y-Pos2.y}
+	end
+
+	fun {CheckIfSomeoneHasFlag PlayersStatus Color}
+		case PlayersStatus of nil then false
+		[] Player|T then 
+			if Player.hasflag\=nil andthen Player.teamColor == Color then 
+				true
+			else
+				{CheckIfSomeoneHasFlag T Color}
+			end 
+		end
 	end
 
 	fun {InManhattan N ToFind State}
