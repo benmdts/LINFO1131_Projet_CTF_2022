@@ -41,7 +41,6 @@ define
 	CheckFreeTileHelper 
 	RemoveFood
 	CheckDead
-	PlaceMine
 	CheckAround
 	
 

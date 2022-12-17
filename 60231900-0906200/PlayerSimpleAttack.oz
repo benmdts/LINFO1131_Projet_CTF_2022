@@ -192,6 +192,7 @@ end
 					hasflag : nil
 					path : {ShortestPath Input.map {List.nth Input.spawnPoints ID} {GetEnnemyFlag Input.flags {GetEnnemyColor ID}}.pos ID}
 					teamColor : {List.nth Input.colors ID}
+					rand:false
 				)
 			}
 		end
@@ -313,13 +314,20 @@ end
 
 	fun {Move State ?ID ?Position}
 		ID = State.id
-		if {Length State.path} >0 then 
+		if State.rand then 
+			case ({OS.rand} mod 4) of 0 then Position = pt(x:State.position.x+1 y:State.position.y)
+			[] 1 then Position = pt(x:State.position.x-1 y:State.position.y)
+			[] 2 then Position = pt(x:State.position.x y:State.position.y+1)
+			[] 3 then Position = pt(x:State.position.x y:State.position.y-1)
+			end
+		elseif {Length State.path} >0 then 
 			Position = {List.nth State.path 1}
-		else 
+		else
 			Position = State.position
 		end
 		State
 	end
+
 
 
 	% À modifier pas complet mais je sais pas encore quoi faire quand ce n'est pas le même id qui a bougé
@@ -329,23 +337,26 @@ end
 		NewState PlayerState in 
 		if ID == State.id then 
 			if(State.hasflag\=nil) then
-				{System.show 'I Moved with flag'}
-			NewState = {Adjoin State state(flags:{ChangeFlags State.flags {GetEnnemyColor ID.id} flag(pos:Position)} position:Position path: State.path.2)}
+				if {Length State.path} >0 then 
+					NewState = {Adjoin State state(flags:{ChangeFlags State.flags {GetEnnemyColor ID.id} flag(pos:Position)} position:Position path: State.path.2)}
+				else
+					NewState = {Adjoin State state(flags:{ChangeFlags State.flags {GetEnnemyColor ID.id} flag(pos:Position)} position:Position path: nil)}
+				end
 			else
-				{System.show 'I Moved without flag'}
-				NewState = {Adjoin State state(position:Position path: State.path.2)}
+				if {Length State.path} >0 then 
+					NewState = {Adjoin State state(position:Position path: State.path.2)}
+				else
+					NewState = {Adjoin State state(position:Position path: nil)}
+				end
 			end 
 		else
 			PlayerState = {GetPlayerState State.playersStatus ID.id}
-			if PlayerState.currentposition==nil then 
-				{System.show 'Someone move just after respawning'}
+			if PlayerState.hp==0 then 
 				NewState = {Adjoin State state(playersStatus:{ChangePlayerStatus State.playersStatus ID.id playerstate(currentposition:Position hp:Input.startHealth)})} 
 			else 
 				if(PlayerState.hasflag\=nil) then
-					{System.show 'Someone move with The flag'}
 					NewState = {Adjoin State state(flags:{ChangeFlags State.flags {GetEnnemyColor ID.id} flag(pos:Position)} playersStatus:{ChangePlayerStatus State.playersStatus ID.id playerstate(currentposition:Position)})}
 				else
-					{System.show 'Someone move without The flag'}
 					NewState = {Adjoin State state(playersStatus:{ChangePlayerStatus State.playersStatus ID.id playerstate(currentposition:Position)})} 
 				end 
 			end
@@ -402,7 +413,6 @@ end
         ID = State.id
         if (State.gunReloads==1) then 
             ManRange={InManhattan 2 player State}
-            {System.show ManRange}
             if ManRange==nil then 
                 Kind = null
             else
@@ -437,9 +447,9 @@ end
 	% À modifier ici le joueur modifie son état quand on lui dit qu'il est mort mais les autres ne font rien
 	fun {SayDeath State ID}
 		if ID == State.id then 
-			{Adjoin State state(position:State.startPosition hp:0 mineReloads:0 gunReloads:0)}
+			{Adjoin State state(position:State.startPosition hp:0)}
 		else
-			{Adjoin State state(playersStatus: {ChangePlayerStatus State.playersStatus ID.id playerstate(position:nil hp:0)})}
+			{Adjoin State state(playersStatus: {ChangePlayerStatus State.playersStatus ID.id playerstate(currentposition:{GetPlayerState State.playersStatus ID.id}.startPosition hp:0)})}
 		end 
 	end
 
@@ -455,7 +465,6 @@ end
 		Color in 
 		ID = State.id
 		Color = {GetEnnemyColor ID.id}
-		{System.show  State.flags|State.position|State.teamColor|Color}
 		if {Member flag(pos:State.position color:Color) State.flags} then 
 			Flag = flag(pos:State.position color:Color)
 		else 
@@ -487,22 +496,19 @@ end
 			NewState = {Adjoin State state(hasflag:Flag path:{ShortestPath Input.map State.position State.startPosition ID.id})}
 		else
 			if Flag.color \= State.teamColor then 
-			NewState = {Adjoin State state(path:{ShortestPath Input.map State.position State.startPosition ID.id} playersStatus: {ChangePlayerStatus State.playersStatus ID.id playerstate(hasflag:Flag)})}
-				else
-			NewState = {Adjoin State state(playersStatus: {ChangePlayerStatus State.playersStatus ID.id playerstate(hasflag:Flag)})}
+				NewState = {Adjoin State state(rand:true path:{ShortestPath Input.map State.position State.startPosition ID.id} playersStatus: {ChangePlayerStatus State.playersStatus ID.id playerstate(hasflag:Flag)})}
+			else
+				NewState = {Adjoin State state(playersStatus: {ChangePlayerStatus State.playersStatus ID.id playerstate(hasflag:Flag)})}
 			end
 		end 
 		NewState 
 	end
 
 	fun {SayFlagDropped State ID Flag}
-		{System.show State.flags}
 		if ID == State.id then 
-			{System.show 'Jai drop'|ID}
 			{Adjoin State state(hasflag:nil)}
 		elseif Flag.color \= State.id.color then
-			{System.show 'Je go a mon flag'|State.flags}
-			{Adjoin State state(playersStatus: {ChangePlayerStatus State.playersStatus ID.id playerstate(hasflag:nil)} path:{ShortestPath Input.map State.position {GetEnnemyFlag State.flags {GetEnnemyColor ID.id}}.pos ID.id})}
+			{Adjoin State state(rand:false playersStatus: {ChangePlayerStatus State.playersStatus ID.id playerstate(hasflag:nil)} path:{ShortestPath Input.map State.position {GetEnnemyFlag State.flags {GetEnnemyColor ID.id}}.pos ID.id})}
 		else
 			{Adjoin State state(playersStatus: {ChangePlayerStatus State.playersStatus ID.id playerstate(hasflag:nil)})}
 		end 
@@ -510,11 +516,12 @@ end
 
 	fun {Respawn State}
 		if {CheckIfSomeoneHasFlag State.playersStatus State.teamColor} then 
-			{Adjoin State state(hp:Input.startHealth position: State.startPosition )}
+			{Adjoin State state(hp:Input.startHealth)}
 		else 
-			{Adjoin State state(hp:Input.startHealth position: State.startPosition path: {ShortestPath Input.map State.startPosition {GetEnnemyFlag Input.flags {GetEnnemyColor State.id.id}}.pos State.id.id})}
+			{Adjoin State state(hp:Input.startHealth path: {ShortestPath Input.map State.startPosition {GetEnnemyFlag Input.flags {GetEnnemyColor State.id.id}}.pos State.id.id})}
 		end 
 	end
+
 	fun {Distance Pos1 Pos2}
 		{Abs Pos1.x-Pos2.x}+{Abs Pos1.y-Pos2.y}
 	end
@@ -534,8 +541,7 @@ end
         fun {SearchPlayer N Pos LPlayer}
             case LPlayer of nil then nil
             [] H|T then
-                {System.show H.teamColor|State.teamColor}
-                if H.teamColor\=State.teamColor andthen {Distance Pos H.currentposition}=<N then 
+                if H.teamColor\=State.teamColor andthen {Distance Pos H.currentposition}=<N andthen H.hp>0 then 
                     H|{SearchPlayer N Pos T}
                 else
                     {SearchPlayer N Pos T}

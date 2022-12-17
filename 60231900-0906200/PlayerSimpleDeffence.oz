@@ -349,7 +349,7 @@ end
 			end 
 		else
 			PlayerState = {GetPlayerState State.playersStatus ID.id}
-			if PlayerState.currentposition==nil then 
+			if PlayerState.hp==0 then 
 				NewState = {Adjoin State state(playersStatus:{ChangePlayerStatus State.playersStatus ID.id playerstate(currentposition:Position hp:Input.startHealth)})} 
 			else 
 				if(PlayerState.hasflag\=nil) then
@@ -445,9 +445,9 @@ end
 	% À modifier ici le joueur modifie son état quand on lui dit qu'il est mort mais les autres ne font rien
 	fun {SayDeath State ID}
 		if ID == State.id then 
-			{Adjoin State state(position:State.startPosition hp:0 mineReloads:0 gunReloads:0)}
+			{Adjoin State state(position:State.startPosition hp:0 )}
 		else
-			{Adjoin State state(playersStatus: {ChangePlayerStatus State.playersStatus ID.id playerstate(position:nil hp:0)})}
+			{Adjoin State state(playersStatus: {ChangePlayerStatus State.playersStatus ID.id playerstate(currentposition:{GetPlayerState State.playersStatus ID.id}.startPosition hp:0)})}
 		end 
 	end
 
@@ -524,7 +524,7 @@ end
         fun {SearchPlayer N Pos LPlayer}
             case LPlayer of nil then nil
             [] H|T then
-                if H.teamColor\=State.teamColor andthen {Distance Pos H.currentposition}=<N then 
+                if H.teamColor\=State.teamColor andthen H.currentposition\=nil andthen {Distance Pos H.currentposition}=<N andthen H.hp>0 then 
                     H|{SearchPlayer N Pos T}
                 else
                     {SearchPlayer N Pos T}

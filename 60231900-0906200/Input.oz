@@ -328,7 +328,7 @@ end
     MineCharge = 5
      
 %%%% Respawn
-    RespawnDelay = 1000
+    RespawnDelay = 3000
 
 %%%% Flags
 
