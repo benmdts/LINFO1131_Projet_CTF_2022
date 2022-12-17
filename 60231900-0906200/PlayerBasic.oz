@@ -192,6 +192,7 @@ end
 					hasflag : nil
 					path : {ShortestPath Input.map {List.nth Input.spawnPoints ID} {GetEnnemyFlag Input.flags {GetEnnemyColor ID}}.pos ID}
 					teamColor : {List.nth Input.colors ID}
+					rand:false
 				)
 			}
 		end
@@ -313,13 +314,20 @@ end
 
 	fun {Move State ?ID ?Position}
 		ID = State.id
-		if {Length State.path} >0 then 
+		if State.rand then 
+			case ({OS.rand} mod 4) of 0 then Position = pt(x:State.position.x+1 y:State.position.y)
+			[] 1 then Position = pt(x:State.position.x-1 y:State.position.y)
+			[] 2 then Position = pt(x:State.position.x y:State.position.y+1)
+			[] 3 then Position = pt(x:State.position.x y:State.position.y-1)
+			end
+		elseif {Length State.path} >0 then 
 			Position = {List.nth State.path 1}
 		else 
 			Position = State.position
 		end
 		State
 	end
+
 
 
 	% À modifier pas complet mais je sais pas encore quoi faire quand ce n'est pas le même id qui a bougé
@@ -455,7 +463,6 @@ end
 		Color in 
 		ID = State.id
 		Color = {GetEnnemyColor ID.id}
-		{System.show  State.flags|State.position|State.teamColor|Color}
 		if {Member flag(pos:State.position color:Color) State.flags} then 
 			Flag = flag(pos:State.position color:Color)
 		else 

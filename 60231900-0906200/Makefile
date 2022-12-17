@@ -38,10 +38,10 @@ reset-player :
 	rm Player1.ozf
 	rm Player2.ozf
 	$(OZC) -c ${PLAYER1} -o "Player1.ozf"
-	$(OZC) -c ${PLAYER1} -o "Player2.ozf"
+	$(OZC) -c ${PLAYER2} -o "Player2.ozf"
 player : 
 	$(OZC) -c ${PLAYER1} -o "Player1.ozf"
-	$(OZC) -c ${PLAYER1} -o "Player2.ozf"
+	$(OZC) -c ${PLAYER2} -o "Player2.ozf"
 
 reset-main: clean-main main run
 

@@ -14,6 +14,9 @@ local
     ModifyListHelper
     CreateMatrix
     CreateRow
+    NewMap
+    NewSpawns
+    NewFlags
 in 
 
 fun {CreateMapMatrix Rows Columns}
@@ -24,10 +27,12 @@ fun {CreateMapMatrix Rows Columns}
 		end
 end
 
-fun {CreateMap}
+proc {CreateMap NewMap NewFlags SpawnPoints}
     Side 
     StartSpawn
     Map 
+    TeamFlags
+    PlayersSpawnPoints
 in 
     Map = {CreateMapMatrix 12 12}
     Side = 0
@@ -46,6 +51,8 @@ in
          %Crée une place pour le drapeau 
        {BindRow {List.nth Map 3} StartSpawn+1 StartSpawn+2 0}
         {BindRow {List.nth Map 10} 12-StartSpawn 13-StartSpawn 0}
+        TeamFlags = [flag(pos:pt(x:3 y:StartSpawn+1) color:red) flag(pos:pt(x:10 y:12-StartSpawn) color:blue)]
+        PlayersSpawnPoints = [pt(x:1 y:StartSpawn) pt(x:12 y:11-StartSpawn) pt(x:1 y:StartSpawn+1) pt(x:12 y:12-StartSpawn) pt(x:1 y:StartSpawn+2) pt(x:12 y:13-StartSpawn)]
       
     else 
          %Crée le spawn pour l'équipe 1
@@ -61,18 +68,27 @@ in
           %Crée une place pour le drapeau 
         {BindColumn Map 3 StartSpawn+1 StartSpawn+2 0}
         {BindColumn Map 10 12-StartSpawn 13-StartSpawn 0}
+        TeamFlags = [flag(pos:pt(x:StartSpawn+1 y:3) color:red) flag(pos:pt(x:12-StartSpawn y:10) color:blue)]
+          PlayersSpawnPoints = [pt(x:StartSpawn y:1) pt(x:11-StartSpawn y:12) pt(x:StartSpawn+1 y:1) pt(x:12-StartSpawn y:12) pt(x:StartSpawn+2 y:1) pt(x:13-StartSpawn y:12)]
     end
     {SpawnWalls Map 1 1}
-    {Browse Map}
-    {Browse pt(x:1  y:StartSpawn+1)| pt(x:10  y:12-StartSpawn)}
-    if({ShortestPath Map pt(x:1  y:StartSpawn+1) pt(x:10  y:12-StartSpawn) 1}==nil) andthen ({ShortestPath Map pt(x:1  y:StartSpawn+1) pt(x:10  y:12-StartSpawn) 1}==nil)  then 
-        {CreateMap}
+    if {ShortestPath Map {List.nth TeamFlags 1}.pos {List.nth TeamFlags 2}.pos 2}==nil orelse {ShortestPath Map {List.nth TeamFlags 1}.pos {List.nth TeamFlags 2}.pos 1}==nil then 
+        NewMap2 NewFlags2 SpawnPoints2
+    in 
+        {Browse 'Soucis'}
+        {CreateMap NewMap2 NewFlags2 SpawnPoints2}
+        NewMap =  NewMap2
+        NewFlags =  NewFlags2
+        SpawnPoints = SpawnPoints2 
     else
-    Map
+    NewMap = Map
+    NewFlags = TeamFlags
+    SpawnPoints = PlayersSpawnPoints 
     end
 end
 
 proc {SpawnWalls Matrix Row Column} 
+    % Fais spawn les murs
     if Column==13 then
         {SpawnWalls Matrix Row+1 1}
     elseif Row ==13 then 
@@ -81,7 +97,7 @@ proc {SpawnWalls Matrix Row Column}
          {SpawnWalls Matrix Row Column+1}
     else 
         Value in 
-        if ({OS.rand} mod 4) ==0 then Value = 3
+        if ({OS.rand} mod 2) ==0 then Value = 3
         else 
             Value = 0
         end 
@@ -213,7 +229,7 @@ fun {ModifyListHelper Row Column Value}
         
 end
 
-fun {CreateMatrix Map Row Start}
+fun {CreateMatrix Map Row Start Tile}
     if Row =< {Length Map} then 
         {CreateRow Map Row 1 Start Tile}|{CreateMatrix Map Row+1 Start Tile}
     else 
@@ -225,9 +241,9 @@ fun {CreateRow Map Row Column Start Tile}
     Value in 
     if Column =< {Length Map.1} then 
         Value = {List.nth {List.nth Map Row} Column}
-        if Value\=3 andthen Start.x==Row andthen Start.y == Column andthen Value\=3 then
+        if Value\=3 andthen Start.x==Row andthen Start.y == Column andthen Value\=Tile then
             tile(x:Row y:Column dist:0 prev: nil)|{CreateRow Map Row Column+1 Start Tile}
-        elseif Value\=3  andthen Value\=Tile then 
+        elseif Value\=3 andthen Value\=Tile then 
             tile(x:Row y: Column dist:999999 prev: nil)|{CreateRow Map Row Column+1 Start Tile}
         else 
             nil|{CreateRow Map Row Column+1 Start Tile}
@@ -237,7 +253,6 @@ fun {CreateRow Map Row Column Start Tile}
     end
 end 
 
-
-{Browse {CreateMap}}
-
-end 
+ {CreateMap NewMap NewFlags NewSpawns}
+ {Browse NewMap}
+end

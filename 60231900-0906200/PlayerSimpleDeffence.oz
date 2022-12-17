@@ -513,7 +513,7 @@ end
 	end
 
 	fun {Respawn State}
-		{Adjoin State state(hp:Input.startHealth position: State.startPosition path :{ShortestPath Input.map State.startPosition {GetEnemyFlag Input.flags {List.nth Input.colors State.id.id}}.pos})}
+		{Adjoin State state(hp:Input.startHealth position: State.startPosition path :{ShortestPath Input.map State.startPosition {GetEnemyFlag Input.flags State.teamColor}.pos})}
 	end
 
 	fun {Distance Pos1 Pos2}

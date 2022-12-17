@@ -107,12 +107,13 @@ in
           PlayersSpawnPoints = [pt(x:StartSpawn y:1) pt(x:11-StartSpawn y:12) pt(x:StartSpawn+1 y:1) pt(x:12-StartSpawn y:12) pt(x:StartSpawn+2 y:1) pt(x:13-StartSpawn y:12)]
     end
     {SpawnWalls Map 1 1}
-    {System.show Map}
     if {ShortestPath Map {List.nth TeamFlags 1}.pos {List.nth TeamFlags 2}.pos 2}==nil orelse {ShortestPath Map {List.nth TeamFlags 1}.pos {List.nth TeamFlags 2}.pos 1}==nil then 
         NewMap2 NewFlags2 SpawnPoints2
-    in 
-        {System.show 'Soucis'}
+    in
         {CreateMap NewMap2 NewFlags2 SpawnPoints2}
+        NewMap =  NewMap2
+        NewFlags =  NewFlags2
+        SpawnPoints = SpawnPoints2 
     else
     NewMap = Map
     NewFlags = TeamFlags
