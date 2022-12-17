@@ -60,13 +60,13 @@ define
 	RandomInRange = fun {$ Min Max} Min+({OS.rand}mod(Max-Min+1)) end
 in
 
-fun {ShortestPath Map StartPosition FinalPosition}
+fun {ShortestPath Map StartPosition FinalPosition ID}
     Sx Sy Dx Dy Matrix Start Src Queue Result Path in 
     Sx = StartPosition.x
     Sy = StartPosition.y
     Dx = FinalPosition.x
     Dy = FinalPosition.y
-    Matrix = {CreateMatrix Map 1 StartPosition}
+    Matrix = {CreateMatrix Map 1 StartPosition (ID mod 2)}
     Src = {List.nth {List.nth Matrix Sx} Sy}
     Queue = [Src]
     Result = {ShortestPathHelper Matrix Queue Dx Dy}
@@ -146,24 +146,24 @@ fun {ModifyListHelper Row Column Value}
         
 end
 
-fun {CreateMatrix Map Row Start}
+fun {CreateMatrix Map Row Start Team}
     if Row =< {Length Map} then 
-        {CreateRow Map Row 1 Start}|{CreateMatrix Map Row + 1 Start}
+        {CreateRow Map Row 1 Start Team}|{CreateMatrix Map Row + 1 Start Team}
     else 
         nil
     end 
 end
 
-fun {CreateRow Map Row Column Start}
+fun {CreateRow Map Row Column Start Team}
     Value in 
     if Column =< {Length Map.1} then 
         Value = {List.nth {List.nth Map Row} Column}
-        if Value\=3 andthen Start.x==Row andthen Start.y == Column then
-            tile(x:Row y:Column dist:0 prev: nil)|{CreateRow Map Row Column+1 Start}
-        elseif Value\=3 then 
-            tile(x:Row y: Column dist:999999 prev: nil)|{CreateRow Map Row Column+1 Start}
+        if Value\=3 andthen Start.x==Row andthen Start.y == Column andthen Team\=Value-1 then
+            tile(x:Row y:Column dist:0 prev: nil)|{CreateRow Map Row Column+1 Start Team}
+        elseif Value\=3 andthen Team\=Value-1 then 
+            tile(x:Row y: Column dist:999999 prev: nil)|{CreateRow Map Row Column+1 Start Team}
         else 
-            nil|{CreateRow Map Row Column+1 Start}
+            nil|{CreateRow Map Row Column+1 Start Team}
         end 
     else 
         nil 
@@ -189,7 +189,7 @@ end
 					playersStatus : {CreatePlayerStatus 1 ID}
 					food: nil
 					hasflag : nil
-					path : {ShortestPath Input.map {List.nth Input.spawnPoints ID} {GetEnnemyFlag Input.flags {GetEnnemyColor ID}}.pos}
+					path : {ShortestPath Input.map {List.nth Input.spawnPoints ID} {GetEnnemyFlag Input.flags {GetEnnemyColor ID}}.pos (ID mod 2)}
 					teamColor : {List.nth Input.colors ID}
 				)
 			}
@@ -483,10 +483,10 @@ end
 	fun {SayFlagTaken State ID Flag}
 		NewState in 
 		if ID == State.id then 
-			NewState = {Adjoin State state(hasflag:Flag path:{ShortestPath Input.map State.position State.startPosition})}
+			NewState = {Adjoin State state(hasflag:Flag path:{ShortestPath Input.map State.position State.startPosition ID.id})}
 		else
 			if Flag.color \= State.teamColor then 
-			NewState = {Adjoin State state(path:{ShortestPath Input.map State.position State.startPosition } playersStatus: {ChangePlayerStatus State.playersStatus ID.id playerstate(hasflag:Flag)})}
+			NewState = {Adjoin State state(path:{ShortestPath Input.map State.position State.startPosition ID.id} playersStatus: {ChangePlayerStatus State.playersStatus ID.id playerstate(hasflag:Flag)})}
 				else
 			NewState = {Adjoin State state(playersStatus: {ChangePlayerStatus State.playersStatus ID.id playerstate(hasflag:Flag)})}
 			end
@@ -501,7 +501,7 @@ end
 			{Adjoin State state(hasflag:nil)}
 		elseif Flag.color \= State.id.color then
 			{System.show 'Je go a mon flag'|State.flags}
-			{Adjoin State state(playersStatus: {ChangePlayerStatus State.playersStatus ID.id playerstate(hasflag:nil)} path:{ShortestPath Input.map State.position {GetEnnemyFlag State.flags {GetEnnemyColor ID.id}}.pos})}
+			{Adjoin State state(playersStatus: {ChangePlayerStatus State.playersStatus ID.id playerstate(hasflag:nil)} path:{ShortestPath Input.map State.position {GetEnnemyFlag State.flags {GetEnnemyColor ID.id}}.pos ID.id})}
 		else
 			{Adjoin State state(playersStatus: {ChangePlayerStatus State.playersStatus ID.id playerstate(hasflag:nil)})}
 		end 

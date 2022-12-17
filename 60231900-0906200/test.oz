@@ -65,7 +65,7 @@ in
     {SpawnWalls Map 1 1}
     {Browse Map}
     {Browse pt(x:1  y:StartSpawn+1)| pt(x:10  y:12-StartSpawn)}
-    if({ShortestPath Map pt(x:1  y:StartSpawn+1) pt(x:10  y:12-StartSpawn)}==nil) then 
+    if({ShortestPath Map pt(x:1  y:StartSpawn+1) pt(x:10  y:12-StartSpawn) 1}==nil) andthen ({ShortestPath Map pt(x:1  y:StartSpawn+1) pt(x:10  y:12-StartSpawn) 1}==nil)  then 
         {CreateMap}
     else
     Map
@@ -127,13 +127,13 @@ proc {BindColumn Matrix Column Row Size Value}
     end
 end
 
-fun {ShortestPath Map StartPosition FinalPosition}
+fun {ShortestPath Map StartPosition FinalPosition Tile}
     Sx Sy Dx Dy Matrix Start Src Queue Result Path in 
     Sx = StartPosition.x
     Sy = StartPosition.y
     Dx = FinalPosition.x
     Dy = FinalPosition.y
-    Matrix = {CreateMatrix Map 1 StartPosition}
+    Matrix = {CreateMatrix Map 1 StartPosition Tile}
     Src = {List.nth {List.nth Matrix Sx} Sy}
     Queue = [Src]
     Result = {ShortestPathHelper Matrix Queue Dx Dy}
@@ -215,22 +215,22 @@ end
 
 fun {CreateMatrix Map Row Start}
     if Row =< {Length Map} then 
-        {CreateRow Map Row 1 Start}|{CreateMatrix Map Row+1 Start}
+        {CreateRow Map Row 1 Start Tile}|{CreateMatrix Map Row+1 Start Tile}
     else 
         nil
     end 
 end
 
-fun {CreateRow Map Row Column Start}
+fun {CreateRow Map Row Column Start Tile}
     Value in 
     if Column =< {Length Map.1} then 
         Value = {List.nth {List.nth Map Row} Column}
-        if Value\=3 andthen Start.x==Row andthen Start.y == Column then
-            tile(x:Row y:Column dist:0 prev: nil)|{CreateRow Map Row Column+1 Start}
-        elseif Value\=3 then 
-            tile(x:Row y: Column dist:999999 prev: nil)|{CreateRow Map Row Column+1 Start}
+        if Value\=3 andthen Start.x==Row andthen Start.y == Column andthen Value\=3 then
+            tile(x:Row y:Column dist:0 prev: nil)|{CreateRow Map Row Column+1 Start Tile}
+        elseif Value\=3  andthen Value\=Tile then 
+            tile(x:Row y: Column dist:999999 prev: nil)|{CreateRow Map Row Column+1 Start Tile}
         else 
-            nil|{CreateRow Map Row Column+1 Start}
+            nil|{CreateRow Map Row Column+1 Start Tile}
         end 
     else 
         nil 
