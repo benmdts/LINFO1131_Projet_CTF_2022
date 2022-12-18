@@ -326,26 +326,10 @@ end
 					NewPath={ShortestPath Input.map State.position EnemyNearFlag.currentposition}
 				end
 				Holder={GetPlayerState State.playersStatus State.allyHolderId}
-				if NewPath==nil orelse NewPath.1==Holder.currentposition then
-					X=Holder.currentposition.x-State.position.x
-					Y=Holder.currentposition.y-State.position.y
-					if {Abs X}+{Abs Y} ==1 then
-						NewState={Adjoin State state(path :[{SearchFreeTile State.position pt(x:X y:Y)}])}
-					elseif {Abs X}+{Abs Y} ==2 then
-						if X==0 then
-							NewState={Adjoin State state(path :[{SearchFreeTile State.position pt(x:X y:{Int.'div' Y 2})}])}
-						elseif Y==0 then
-							NewState={Adjoin State state(path :[{SearchFreeTile State.position pt(x:{Int.'div' X 2} y:Y)}])}
-						else
-							if {IsAllyAt State.playersStatus pt(x:X y:0) State.teamColor} then
-								NewState={Adjoin State state(path :[{SearchFreeTile State.position pt(x:X y:0)}])}
-							else
-								NewState={Adjoin State state(path :[{SearchFreeTile State.position pt(x:0 y:Y)}])}
-							end
-						end
-					else
-						NewState={Adjoin State state(path :NewPath)}
-					end
+				if NewPath==nil then
+					NewState={Adjoin State state(path :{SearchFreeTile State.position pt(x:0 y:0) State})}
+				elseif {IsAllyAt State.playersStatus NewPath.1 State.teamColor} then
+					NewState={Adjoin State state(path :{SearchFreeTile State.position pt(x:NewPath.1.x-State.position.x y:NewPath.1.y-State.position.y) State})}
 				else
 					NewState={Adjoin State state(path :NewPath)}
 				end
@@ -375,11 +359,11 @@ end
 	end
 
 	%On regarde ou se mettre pour laisser passer le porteur de drapeau sachant que le porteur du drapeau se trouve en X Y par rapport a nous
-	fun {SearchFreeTile Pos PosRelative}
-		if PosRelative\=pt(x:0 y:~1) andthen {IsNoWall pt(x:Pos.x+0 y:Pos.y-1)} then pt(x:Pos.x y:Pos.y-1)
-		elseif PosRelative\=pt(x:0 y:1) andthen {IsNoWall pt(x:Pos.x+0 y:Pos.y+1)} then pt(x:Pos.x y:Pos.y+1)
-		elseif PosRelative\=pt(x:~1 y:0) andthen {IsNoWall pt(x:Pos.x-1 y:Pos.y)} then pt(x:Pos.x-1 y:Pos.y)
-		elseif PosRelative\=pt(x:1 y:0) andthen {IsNoWall pt(x:Pos.x+1 y:Pos.y)} then pt(x:Pos.x+1 y:Pos.y)
+	fun {SearchFreeTile Pos PosRelative State}
+		if PosRelative\=pt(x:0 y:~1) andthen {IsNoWall pt(x:Pos.x+0 y:Pos.y-1)} andthen {Not {IsAllyAt State.playersStatus pt(x:Pos.x y:Pos.y-1) State.teamColor}} then [pt(x:Pos.x y:Pos.y-1)]
+		elseif PosRelative\=pt(x:0 y:1) andthen {IsNoWall pt(x:Pos.x+0 y:Pos.y+1)} andthen {Not {IsAllyAt State.playersStatus pt(x:Pos.x y:Pos.y+1) State.teamColor}} then [pt(x:Pos.x y:Pos.y+1)]
+		elseif PosRelative\=pt(x:~1 y:0) andthen {IsNoWall pt(x:Pos.x-1 y:Pos.y)} andthen {Not {IsAllyAt State.playersStatus pt(x:Pos.x-1 y:Pos.y) State.teamColor}} then [pt(x:Pos.x-1 y:Pos.y)]
+		elseif PosRelative\=pt(x:1 y:0) andthen {IsNoWall pt(x:Pos.x+1 y:Pos.y)} andthen {Not {IsAllyAt State.playersStatus pt(x:Pos.x+1 y:Pos.y) State.teamColor}} then [pt(x:Pos.x+1 y:Pos.y)]
 		else nil end
 	end
 
@@ -526,24 +510,15 @@ end
         if (State.mineReloads==5) andthen State.hasflag\=nil then
             Kind=mine(pos:pt(x:State.position.x y:State.position.y))
         elseif (State.gunReloads==1) then 
-            if({Length State.path}>=2) then 
-                if {Member mine(pos:{List.nth State.path 2}) State.mines} then 
-                    Kind = gun(pos:{List.nth State.path 2})
-                else 
-                    if {InManhattan 2 player State}\=nil then 
-                    ManRange={InManhattan 2 player State}
-                    Kind =gun(pos:ManRange.1.currentposition)
-                    else 
-                        Kind = null
-                    end
-                end 
-            else
-                if {InManhattan 2 player State}\=nil then 
+            if({Length State.path}>1 andthen {Member mine(pos:State.path.2.1) State.mines} andthen {Not{IsAllyAt State.playersStatus pt(State.path.2.1) teamColor}}) then 
+				Kind = gun(pos:State.path.2.1)
+			elseif ({Length State.path}>0 andthen {Member mine(pos:State.path.1) State.mines} andthen {Not{IsAllyAt State.playersStatus pt(State.path.1) teamColor}}) then 
+				Kind = gun(pos:State.path.1)
+            elseif {InManhattan 2 player State}\=nil then 
                 ManRange={InManhattan 2 player State}
                 Kind =gun(pos:ManRange.1.currentposition)
-                else 
-                    Kind = null
-                end
+            else 
+                Kind = null
             end
         else 
             Kind = null

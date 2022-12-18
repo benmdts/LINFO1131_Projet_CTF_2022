@@ -15,7 +15,7 @@ else
 endif
 
 # TODO: Change these parameters as you wish
-INPUT = "Input.oz"
+INPUT = "Input2.oz"
 PLAYER1 = "PlayerBasic.oz"
 PLAYER2 = "PlayerBasic.oz"
 
@@ -52,7 +52,7 @@ clean:
 	rm *.ozf
 
 input:
-	$(OZC) -c Input.oz -o "Input.ozf"
+	$(OZC) -c ${INPUT} -o "Input.ozf"
 
 input-reset:
 	rm Input.ozf

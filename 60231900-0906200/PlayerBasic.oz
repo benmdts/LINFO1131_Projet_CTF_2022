@@ -17,10 +17,7 @@ define
 
 	% Message functions
 	InitPosition
-	NewTurn
 	Move
-	IsDead
-	AskHealth
 	SayMoved
 	SayMineExplode
 	SayDeath
@@ -42,7 +39,7 @@ define
 	GetPlayerState
 	RemoveFromList
 	ChangeFlags
-	GetEnnemyColor
+	GetEnemyColor
 	ShortestPath
 	CreatePath
 	ShortestPathHelper
@@ -51,13 +48,16 @@ define
 	ModifyListHelper
 	CreateMatrix
 	CreateRow
-	GetEnemyFlag
+    GetFlag
 	Distance
 	InManhattan
+    GPS
+    GetEnemyWhoHaveFlag
+	GetEnemyNearestFlag
+	SearchFreeTile
+	IsNoWall
+	IsAllyAt
 	
-
-	% Helper functions
-	RandomInRange = fun {$ Min Max} Min+({OS.rand}mod(Max-Min+1)) end
 in
 
 fun {ShortestPath Map StartPosition FinalPosition}
@@ -189,22 +189,24 @@ end
 					playersStatus : {CreatePlayerStatus 1 ID}
 					food: nil
 					hasflag : nil
-					path : {ShortestPath Input.map {List.nth Input.spawnPoints ID} {GetEnemyFlag Input.flags {List.nth Input.colors ID}}.pos}
+					path : nil
 					teamColor : {List.nth Input.colors ID}
-					rand:false
+                    allyHasFlag:false
+					allyHolderId:0
+                    enemyHasFlag:false
 				)
 			}
 		end
 		Port
 	end
-	%ICI ID est juste le chiffre
-	fun {GetEnemyFlag Flags Color}
+	%Retourne le Flag de la couleur
+	fun {GetFlag Flags Color}
 		case Flags of nil then nil 
 		[]Flag|T then 
 			if Color == Flag.color then 
 				Flag
-			else 
-				{GetEnemyFlag T Color}
+			else
+				{GetFlag T Color}
 			end 
 		end 
 	end
@@ -225,7 +227,7 @@ end
 			end
 		end 
 	end 
-	fun {GetEnnemyColor ID}
+	fun {GetEnemyColor ID}
 		if(ID>1) then 
 			{List.nth Input.colors ID-1}
 		else 
@@ -276,7 +278,7 @@ end
 	end
     proc{TreatStream Stream State}
         case Stream
-            of H|T then{TreatStream T {MatchHead H State}}
+            of H|T then {TreatStream T {MatchHead H State}}
         end
     end
 
@@ -291,7 +293,7 @@ end
 			[] chargeItem(?ID ?Kind) then {ChargeItem State ID Kind}
 			[] sayCharge(ID Kind) then {SayCharge State ID Kind}
 			[] fireItem(?ID ?Kind) then {FireItem State ID Kind}
-			[] sayMinePlaced(ID Mine) then {SayMinePlaced State ID Mine}
+			[] sayMinePlaced(ID Mine) then {SayMinePlaced State ID Mine} 
 			[] sayShoot(ID Position) then {SayShoot State ID Position}
             [] sayDeath(ID) then {SayDeath State ID}
             [] sayDamageTaken(ID Damage LifeLeft) then {SayDamageTaken State ID Damage LifeLeft}
@@ -312,19 +314,116 @@ end
 	end
 
 	fun {Move State ?ID ?Position}
+        NewState
+    in
 		ID = State.id
-		if State.rand then 
-			case ({OS.rand} mod 4) of 0 then Position = pt(x:State.position.x+1 y:State.position.y)
-			[] 1 then Position = pt(x:State.position.x-1 y:State.position.y)
-			[] 2 then Position = pt(x:State.position.x y:State.position.y+1)
-			[] 3 then Position = pt(x:State.position.x y:State.position.y-1)
+		if State.allyHasFlag then
+			local X Y Holder EnemyNearFlag NewPath in
+				EnemyNearFlag ={GetEnemyNearestFlag State.playersStatus State.teamColor {GetFlag State.flags State.teamColor}.pos}.2
+				if EnemyNearFlag == nil then 
+					NewPath=nil
+				else 
+					NewPath={ShortestPath Input.map State.position EnemyNearFlag.currentposition}
+				end
+				Holder={GetPlayerState State.playersStatus State.allyHolderId}
+				if NewPath==nil then
+					NewState={Adjoin State state(path :{SearchFreeTile State.position pt(x:0 y:0) State})}
+				elseif {IsAllyAt State.playersStatus NewPath.1 State.teamColor} then
+					NewState={Adjoin State state(path :{SearchFreeTile State.position pt(x:NewPath.1.x-State.position.x y:NewPath.1.y-State.position.y) State})}
+				else
+					NewState={Adjoin State state(path :NewPath)}
+				end
 			end
-		elseif {Length State.path} >0 then 
-			Position = {List.nth State.path 1}
-		else 
-			Position = State.position
+		else
+			if State.path==nil orelse State.enemyHasFlag then
+				NewState={Adjoin State state(path :{GPS State})}
+			else
+				NewState=State
+			end
 		end
-		State
+		if NewState.path == nil then
+			Position=NewState.position
+		else
+        	Position = NewState.path.1
+		end
+		NewState
+	end
+
+
+	fun {IsAllyAt PList Position Color}
+		case PList of nil then false 
+		[] H|T then
+			if H.currentposition==Position andthen Color==H.teamColor then true
+			else {IsAllyAt T Position Color} end
+		end
+	end
+
+	%On regarde ou se mettre pour laisser passer le porteur de drapeau sachant que le porteur du drapeau se trouve en X Y par rapport a nous
+	fun {SearchFreeTile Pos PosRelative State}
+		if PosRelative\=pt(x:0 y:~1) andthen {IsNoWall pt(x:Pos.x+0 y:Pos.y-1)} andthen {Not {IsAllyAt State.playersStatus pt(x:Pos.x y:Pos.y-1) State.teamColor}} then [pt(x:Pos.x y:Pos.y-1)]
+		elseif PosRelative\=pt(x:0 y:1) andthen {IsNoWall pt(x:Pos.x+0 y:Pos.y+1)} andthen {Not {IsAllyAt State.playersStatus pt(x:Pos.x y:Pos.y+1) State.teamColor}} then [pt(x:Pos.x y:Pos.y+1)]
+		elseif PosRelative\=pt(x:~1 y:0) andthen {IsNoWall pt(x:Pos.x-1 y:Pos.y)} andthen {Not {IsAllyAt State.playersStatus pt(x:Pos.x-1 y:Pos.y) State.teamColor}} then [pt(x:Pos.x-1 y:Pos.y)]
+		elseif PosRelative\=pt(x:1 y:0) andthen {IsNoWall pt(x:Pos.x+1 y:Pos.y)} andthen {Not {IsAllyAt State.playersStatus pt(x:Pos.x+1 y:Pos.y) State.teamColor}} then [pt(x:Pos.x+1 y:Pos.y)]
+		else nil end
+	end
+
+	fun {IsNoWall Position}
+		if Position.x>0 andthen Position.x<MapWidth andthen Position.y>0 andthen Position.y<MapHeight then
+			{List.nth {List.nth Input.map Position.x} Position.y}\=3
+		else
+			false
+		end
+	end
+
+    %Retourne le path a prendre ne fonction du state
+    fun {GPS State}
+        if State.hasflag\=nil then
+            %Run base with flag
+            {ShortestPath Input.map State.position State.startPosition}
+        elseif State.enemyHasFlag then
+            %Try to kill enemy with flag except if we are near to take flag we continue to take it
+			if {Not State.allyHasFlag} andthen {Distance State.position {GetFlag State.flags {GetEnemyColor State.id.id}}.pos}=<2 then
+				{ShortestPath Input.map State.position {GetFlag State.flags {GetEnemyColor State.id.id}}.pos}
+			else
+            	{ShortestPath Input.map State.position {GetEnemyWhoHaveFlag State.playersStatus State.teamColor}.currentposition}
+			end
+        else
+            %On va chercher notre flag le plus rapidement possible
+            {ShortestPath Input.map State.position {GetFlag State.flags {GetEnemyColor State.id.id}}.pos}
+        end
+    end
+
+    fun {GetEnemyWhoHaveFlag PlayersList Color}
+        case PlayersList of nil then nil
+		[] PlayerState|T then 
+			if(PlayerState.teamColor \= Color andthen PlayerState.hasflag\=nil) then 
+				PlayerState
+			else 
+				{GetEnemyWhoHaveFlag T Color}
+			end
+		end
+    end
+
+	fun {GetEnemyNearestFlag PlayersList Color FlagPos}
+		case PlayersList of nil then 1000|nil
+		[] PlayerState|T then 
+			if(PlayerState.teamColor \= Color andthen PlayerState.hp>0) then 
+				local 
+					Second
+					DistancePlayer
+				in
+					Second={GetEnemyNearestFlag T Color FlagPos}
+					DistancePlayer={Distance PlayerState.currentposition FlagPos}
+					if DistancePlayer =< Second.1 then
+						DistancePlayer|PlayerState
+					else
+						Second
+					end
+				end
+			else 
+				{GetEnemyNearestFlag T Color FlagPos}
+			end
+		end
 	end
 
 
@@ -335,16 +434,16 @@ end
 		NewState PlayerState in 
 		if ID == State.id then 
 			if(State.hasflag\=nil) then
-				if {Length State.path} >0 then 
-					NewState = {Adjoin State state(flags:{ChangeFlags State.flags {GetEnnemyColor ID.id} flag(pos:Position)} position:Position path: State.path.2)}
+				if State.path==nil then
+					NewState = {Adjoin State state(flags:{ChangeFlags State.flags {GetEnemyColor ID.id} flag(pos:Position)} position:Position path: nil)}
 				else
-					NewState = {Adjoin State state(flags:{ChangeFlags State.flags {GetEnnemyColor ID.id} flag(pos:Position)} position:Position path: nil)}
+					NewState = {Adjoin State state(flags:{ChangeFlags State.flags {GetEnemyColor ID.id} flag(pos:Position)} position:Position path: State.path.2)}
 				end
 			else
-				if {Length State.path} >0 then 
-					NewState = {Adjoin State state(position:Position path: State.path.2)}
-				else
+				if State.path==nil then
 					NewState = {Adjoin State state(position:Position path: nil)}
+				else
+					NewState = {Adjoin State state(position:Position path: State.path.2)}
 				end
 			end 
 		else
@@ -353,14 +452,13 @@ end
 				NewState = {Adjoin State state(playersStatus:{ChangePlayerStatus State.playersStatus ID.id playerstate(currentposition:Position hp:Input.startHealth)})} 
 			else 
 				if(PlayerState.hasflag\=nil) then
-					NewState = {Adjoin State state(flags:{ChangeFlags State.flags {GetEnnemyColor ID.id} flag(pos:Position)} playersStatus:{ChangePlayerStatus State.playersStatus ID.id playerstate(currentposition:Position)})}
+					NewState = {Adjoin State state(flags:{ChangeFlags State.flags {GetEnemyColor ID.id} flag(pos:Position)} playersStatus:{ChangePlayerStatus State.playersStatus ID.id playerstate(currentposition:Position)})}
 				else
 					NewState = {Adjoin State state(playersStatus:{ChangePlayerStatus State.playersStatus ID.id playerstate(currentposition:Position)})} 
 				end 
 			end
 		end
 		NewState
-
 	end
 
 
@@ -409,15 +507,19 @@ end
         ManRange
     in
         ID = State.id
-        if (State.gunReloads==1) then 
-            ManRange={InManhattan 2 player State}
-            if ManRange==nil then 
-                Kind = null
-            else
-                Kind =gun(pos:ManRange.1.currentposition)
-            end
-        elseif (State.mineReloads==5) then
+        if (State.mineReloads==5) andthen State.hasflag\=nil then
             Kind=mine(pos:pt(x:State.position.x y:State.position.y))
+        elseif (State.gunReloads==1) then 
+            if({Length State.path}>1 andthen {Member mine(pos:State.path.2.1) State.mines} andthen {Not{IsAllyAt State.playersStatus pt(State.path.2.1) teamColor}}) then 
+				Kind = gun(pos:State.path.2.1)
+			elseif ({Length State.path}>0 andthen {Member mine(pos:State.path.1) State.mines} andthen {Not{IsAllyAt State.playersStatus pt(State.path.1) teamColor}}) then 
+				Kind = gun(pos:State.path.1)
+            elseif {InManhattan 2 player State}\=nil then 
+                ManRange={InManhattan 2 player State}
+                Kind =gun(pos:ManRange.1.currentposition)
+            else 
+                Kind = null
+            end
         else 
             Kind = null
         end
@@ -462,7 +564,7 @@ end
 	fun {TakeFlag State ?ID ?Flag}
 		Color in 
 		ID = State.id
-		Color = {GetEnnemyColor ID.id}
+		Color = {GetEnemyColor ID.id}
 		if {Member flag(pos:State.position color:Color) State.flags} then 
 			Flag = flag(pos:State.position color:Color)
 		else 
@@ -477,13 +579,13 @@ end
 		Team=ID.id mod 2
 		Tile={List.nth {List.nth Input.map State.position.x} State.position.y}
 		if State.hasflag \=nil then 
-		if (Team == 1 andthen Tile ==1) orelse (Team == 0 andthen Tile ==2) then 
-			Flag = flag(pos: State.position color: {GetEnnemyColor ID.id})
-		else
-			Flag = null
-		end
-	else 
-		Flag = null 
+		    if (Team == 1 andthen Tile ==1) orelse (Team == 0 andthen Tile ==2) then 
+			    Flag = flag(pos: State.position color: {GetEnemyColor ID.id})
+		    else
+			    Flag = null
+		    end
+        else 
+            Flag = null 
 		end
 		State
 	end
@@ -491,12 +593,12 @@ end
 	fun {SayFlagTaken State ID Flag}
 		NewState in 
 		if ID == State.id then
-			NewState = {Adjoin State state(hasflag:Flag path:{ShortestPath Input.map State.position State.startPosition})}
+			NewState = {Adjoin State state(hasflag:Flag path:nil)}
 		else
 			if Flag.color \= State.teamColor then 
-				NewState = {Adjoin State state(rand:true path:{ShortestPath Input.map State.position State.startPosition } playersStatus: {ChangePlayerStatus State.playersStatus ID.id playerstate(hasflag:Flag)})}
+				NewState = {Adjoin State state(allyHolderId:ID.id allyHasFlag:true path:nil playersStatus: {ChangePlayerStatus State.playersStatus ID.id playerstate(hasflag:Flag)})}
 			else
-				NewState = {Adjoin State state(path:{ShortestPath Input.map State.position {GetPlayerState State.playersStatus ID.id}.startPosition} playersStatus: {ChangePlayerStatus State.playersStatus ID.id playerstate(hasflag:Flag)})}
+				NewState = {Adjoin State state(enemyHasFlag:true path:nil playersStatus: {ChangePlayerStatus State.playersStatus ID.id playerstate(hasflag:Flag)})}
 			end
 		end 
 		NewState 
@@ -504,16 +606,16 @@ end
 
 	fun {SayFlagDropped State ID Flag}
 		if ID == State.id then 
-			{Adjoin State state(hasflag:nil)}
+			{Adjoin State state(hasflag:nil path:nil)}
 		elseif Flag.color \= State.id.color then
-			{Adjoin State state(rand:false playersStatus: {ChangePlayerStatus State.playersStatus ID.id playerstate(hasflag:nil)} path:{ShortestPath Input.map State.position {GetEnemyFlag State.flags {GetEnnemyColor ID.id}}.pos})}
+			{Adjoin State state(allyHasFlag:false path:nil playersStatus: {ChangePlayerStatus State.playersStatus ID.id playerstate(hasflag:nil)})}
 		else
-			{Adjoin State state(path :{ShortestPath Input.map State.startPosition {GetEnemyFlag Input.flags {List.nth Input.colors State.id.id}}.pos} playersStatus: {ChangePlayerStatus State.playersStatus ID.id playerstate(hasflag:nil)})}
+			{Adjoin State state(enemyHasFlag:false path:nil playersStatus: {ChangePlayerStatus State.playersStatus ID.id playerstate(hasflag:nil)})}
 		end 
 	end
 
 	fun {Respawn State}
-		{Adjoin State state(hp:Input.startHealth position: State.startPosition path :{ShortestPath Input.map State.startPosition {GetEnemyFlag Input.flags State.teamColor}.pos})}
+		{Adjoin State state(hp:Input.startHealth position:State.startPosition path:nil)}
 	end
 
 	fun {Distance Pos1 Pos2}

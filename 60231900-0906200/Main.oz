@@ -52,20 +52,6 @@ define
 		end
 	end
 in
-	/* 
-	fun {CreateMatrix Size}
-
-
-	end
-
-	fun {CreateMap}
-		Side 
-	in 
-		{CreateMatrix 12}
-		Side = ({OS.rand} mod 2)
-
-	end
-	*/
     fun {DoListPlayer Players Colors ID}
 		case Players#Colors
 		of nil#nil then nil
@@ -139,15 +125,16 @@ in
 			end
 		end
 
-		 {SimulatedThinking}% Il réfléchis
+		{SimulatedThinking}% Il réfléchis
 		
 		%Ask where the player want to go and move if its valid, if he walked on a mine then BOOM
 		local
 			NewPosition
 			PlayerID
 			IsDead
-		in 
+		in
 			{Send Port move(PlayerID NewPosition)}
+			%{SimulatedThinking}% Il réfléchis
 			{Wait NewPosition}{Wait PlayerID}
 			{Send StatePort move(PlayerID NewPosition IsDead)}
 			if IsDead then {Main Port ID StatePort} end
@@ -159,6 +146,7 @@ in
 			IsDead
 		in
 			{Send Port chargeItem(ID Kind)}
+			%{SimulatedThinking}% Il réfléchis
 			{Wait Kind}
 			{Send StatePort playerCharge(ID Kind Port IsDead)}% Est-ce qu'on vérifie s'il est pas au max ?
 			if IsDead then {Main Port ID StatePort} end
@@ -170,6 +158,7 @@ in
 			IsDead
 		in
 			{Send Port fireItem(ID Fire)}
+			%{SimulatedThinking}% Il réfléchis
 			{Wait Fire}
 			{Send StatePort useWeapon(ID Fire IsDead)}% Est-ce qu'on vérifie s'il est pas au max ?
 			if IsDead then {Main Port ID StatePort} end
@@ -181,6 +170,7 @@ in
 			IsDead
 		in
 			{Send Port takeFlag(ID Flag)}
+			%{SimulatedThinking}% Il réfléchis
 			if Flag \=null then 
 				{Send StatePort playerTakeFlag(ID Flag IsDead)}
 			else
@@ -194,6 +184,7 @@ in
 			PlayerDroppedFlag
 		in
 			{Send Port dropFlag(ID PlayerDroppedFlag)}
+			%{SimulatedThinking}% Il réfléchis
 			if PlayerDroppedFlag\=null then
 				{Send StatePort playerDropFlag(ID)}
 			end 

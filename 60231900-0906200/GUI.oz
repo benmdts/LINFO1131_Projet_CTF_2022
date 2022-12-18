@@ -328,7 +328,6 @@ in
 		[] lifeUpdate(ID Life)|T then
 			{TreatStream T Grid {StateModification Grid ID State {UpdateLife Life}}}
 		[] putMine(Mine)|T then 
-			{System.show Mine}
 			{TreatStream T Grid {StateModification Grid null State {DrawMine Mine.pos}}}
 		[] removeMine(Mine)|T then
 			{TreatStream T Grid {StateModification Grid null State {RemoveMine Mine.pos}}}
