@@ -278,7 +278,7 @@ end
 	end
     proc{TreatStream Stream State}
         case Stream
-            of H|T then{TreatStream T {MatchHead H State}}
+            of H|T then {TreatStream T {MatchHead H State}}
         end
     end
 
@@ -293,7 +293,7 @@ end
 			[] chargeItem(?ID ?Kind) then {ChargeItem State ID Kind}
 			[] sayCharge(ID Kind) then {SayCharge State ID Kind}
 			[] fireItem(?ID ?Kind) then {FireItem State ID Kind}
-			[] sayMinePlaced(ID Mine) then {SayMinePlaced State ID Mine}
+			[] sayMinePlaced(ID Mine) then {SayMinePlaced State ID Mine} 
 			[] sayShoot(ID Position) then {SayShoot State ID Position}
             [] sayDeath(ID) then {SayDeath State ID}
             [] sayDamageTaken(ID Damage LifeLeft) then {SayDamageTaken State ID Damage LifeLeft}
