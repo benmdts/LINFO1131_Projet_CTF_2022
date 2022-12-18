@@ -182,12 +182,16 @@ in
 		%Ask if wether or not player want to drop flag
 		local 
 			PlayerDroppedFlag
+			IsDead
 		in
-			{Send Port dropFlag(ID PlayerDroppedFlag)}
-			%{SimulatedThinking}% Il réfléchis
-			if PlayerDroppedFlag\=null then
-				{Send StatePort playerDropFlag(ID)}
-			end 
+			{Send StatePort isAlive(ID IsDead)}
+			if {Not IsDead} then
+				{Send Port dropFlag(ID PlayerDroppedFlag)}
+				%{SimulatedThinking}% Il réfléchis
+				if PlayerDroppedFlag\=null then
+					{Send StatePort playerDropFlag(ID)}
+				end 
+			end
 		end
 
 		{Main Port ID StatePort}
@@ -362,11 +366,11 @@ in
 				{SayToAllPlayers PlayersPorts sayDamageTaken(PlayerState.id RemoveHP PlayerState.hp-RemoveHP)}
 				if(PlayerState.hp-RemoveHP=<0) then 
 					{Send WindowPort removeSoldier(PlayerState.id)}
-					{SayToAllPlayers PlayersPorts sayDeath(PlayerState.id)}
 					%Si le joueur a le drapeau alors on dit a tout le monde que le drapeau est drop car il est mort
 					if(PlayerState.hasflag\=nil) then 
 						{SayToAllPlayers PlayersPorts sayFlagDropped(PlayerState.id PlayerState.hasflag)}
 					end
+					{SayToAllPlayers PlayersPorts sayDeath(PlayerState.id)}
 					% On met hasflag: nil dans tous les cas c'est plus facile
 					NewPlayerState = playerstate(currentposition:pt(x:~1 y:~1) hp:PlayerState.hp-RemoveHP hasflag:nil)
 					% SKIP LE RESTE DE SON TOUR. Je vois pas comment faire pour l'instant 
@@ -413,11 +417,11 @@ in
 				{Send WindowPort lifeUpdate(H.id H.hp-1)}
 				if(H.hp-1=<0) then 
 					{Send WindowPort removeSoldier(H.id)}
-					{SayToAllPlayers PlayersPorts sayDeath(H.id)}
 					%Si le joueur a le drapeau alors on dit a tout le monde que le drapeau est drop car il est mort
 					if(H.hasflag\=nil) then 
 						{SayToAllPlayers PlayersPorts sayFlagDropped(H.id H.hasflag)}
 					end
+					{SayToAllPlayers PlayersPorts sayDeath(H.id)}
 					% On met hasflag: nil dans tous les cas c'est plus facile
 					{Adjoin State state(playersStatus:{ChangePlayerStatus State.playersStatus H.id playerstate(currentposition:pt(x:~1 y:~1) hp:H.hp-1 hasflag:nil)})}
 					% SKIP LE RESTE DE SON TOUR. Je vois pas comment faire pour l'instant 
@@ -636,7 +640,7 @@ in
 			PlayerState
 		in
 			if {CheckDead State ID} then
-				Dead=true  
+				Dead=true
 				State
 			else
 				PlayerState={GetPlayerState State.playersStatus ID} 

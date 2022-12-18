@@ -509,10 +509,10 @@ end
         if (State.mineReloads==5) andthen State.hasflag\=nil then
             Kind=mine(pos:pt(x:State.position.x y:State.position.y))
         elseif (State.gunReloads==1) then 
-            if({Length State.path}>1 andthen {Member mine(pos:State.path.2.1) State.mines} andthen {Not{IsAllyAt State.playersStatus pt(State.path.2.1) teamColor}}) then 
-				Kind = gun(pos:State.path.2.1)
-			elseif ({Length State.path}>0 andthen {Member mine(pos:State.path.1) State.mines} andthen {Not{IsAllyAt State.playersStatus pt(State.path.1) teamColor}}) then 
+			if ({Length State.path}>0 andthen {Member mine(pos:State.path.1) State.mines} andthen {Not{IsAllyAt State.playersStatus pt(State.path.1) teamColor}}) then 
 				Kind = gun(pos:State.path.1)
+            elseif({Length State.path}>1 andthen {Member mine(pos:State.path.2.1) State.mines} andthen {Not{IsAllyAt State.playersStatus pt(State.path.2.1) teamColor}}) then 
+				Kind = gun(pos:State.path.2.1)
             elseif {InManhattan 2 player State}\=nil then 
                 ManRange={InManhattan 2 player State}
                 Kind =gun(pos:ManRange.1.currentposition)
@@ -576,6 +576,7 @@ end
 		Team Tile in 
 		ID = State.id
 		Team=ID.id mod 2
+		{System.show 'DropFlag'|State.position}
 		Tile={List.nth {List.nth Input.map State.position.x} State.position.y}
 		if State.hasflag \=nil then 
 		    if (Team == 1 andthen Tile ==1) orelse (Team == 0 andthen Tile ==2) then 

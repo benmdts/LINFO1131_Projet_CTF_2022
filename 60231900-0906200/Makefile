@@ -15,7 +15,7 @@ else
 endif
 
 # TODO: Change these parameters as you wish
-INPUT = "Input2.oz"
+INPUT = "Input.oz"
 PLAYER1 = "Player059Tactical.oz"
 PLAYER2 = "Player059OffensiveUpgraded.oz"
 
