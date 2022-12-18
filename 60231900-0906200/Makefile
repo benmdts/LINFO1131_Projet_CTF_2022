@@ -16,8 +16,8 @@ endif
 
 # TODO: Change these parameters as you wish
 INPUT = "Input2.oz"
-PLAYER1 = "PlayerBasic.oz"
-PLAYER2 = "PlayerBasic.oz"
+PLAYER1 = "Player059Tactical.oz"
+PLAYER2 = "Player059OffensiveUpgraded.oz"
 
 all:
 	$(OZC) -c ${INPUT} -o "Input.ozf"
