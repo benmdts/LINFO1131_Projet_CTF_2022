@@ -451,15 +451,15 @@ end
 		if ID == State.id then 
 			if(State.hasflag\=nil) then
 				if State.path==nil then
-					NewState = {Adjoin State state(flags:{ChangeFlags State.flags {GetEnemyColor ID.id} flag(pos:Position)} position:Position path: State.path.2)}
-				else
 					NewState = {Adjoin State state(flags:{ChangeFlags State.flags {GetEnemyColor ID.id} flag(pos:Position)} position:Position path: nil)}
+				else
+					NewState = {Adjoin State state(flags:{ChangeFlags State.flags {GetEnemyColor ID.id} flag(pos:Position)} position:Position path: State.path.2)}
 				end
 			else
 				if State.path==nil then
-					NewState = {Adjoin State state(position:Position path: State.path.2)}
-				else
 					NewState = {Adjoin State state(position:Position path: nil)}
+				else
+					NewState = {Adjoin State state(position:Position path: State.path.2)}
 				end
 			end 
 		else
